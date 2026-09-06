@@ -60,3 +60,43 @@ def get(dotted_key: str, cwd: str | None = None) -> Any:
             return None
         node = node[part]
     return node
+
+
+def set_value(dotted_key: str, value: str, cwd: str | None = None, global_: bool = False) -> None:
+    path = _global_config_path() if global_ else (_repo_config_path(cwd) or _global_config_path())
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = _load_toml(path)
+    node = data
+    parts = dotted_key.split(".")
+    for part in parts[:-1]:
+        node = node.setdefault(part, {})
+    node[parts[-1]] = value
+    _write_toml(path, data)
+
+
+def _toml_scalar(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    return '"' + str(value).replace('"', '\\"') + '"'
+
+
+def _render_table(section: str, data: dict) -> str:
+    lines = [f"[{section}]"]
+    nested = ""
+    for key, value in data.items():
+        if isinstance(value, dict):
+            nested += "\n\n" + _render_table(f"{section}.{key}", value)
+        else:
+            lines.append(f"{key} = {_toml_scalar(value)}")
+    return "\n".join(lines) + nested
+
+
+def _write_toml(path: Path, data: dict) -> None:
+    scalars = {k: v for k, v in data.items() if not isinstance(v, dict)}
+    tables = {k: v for k, v in data.items() if isinstance(v, dict)}
+    text = "\n".join(f"{k} = {_toml_scalar(v)}" for k, v in scalars.items())
+    for key, value in tables.items():
+        text += ("\n\n" if text else "") + _render_table(key, value)
+    path.write_text(text + "\n")

@@ -21,6 +21,7 @@ from .merge_rebase_cmds import (
     rebase_app,
     revert_app,
 )
+from . import nuke_cmds, util_cmds
 
 app = typer.Typer(
     name="mgit",
@@ -47,6 +48,15 @@ app.command("amend")(commit_cmds.amend_cmd)
 app.command("undo")(commit_cmds.undo_cmd)
 app.command("log")(log_cmds.log_cmd)
 app.command("diff")(log_cmds.diff_cmd)
+app.command("reset-hard")(nuke_cmds.reset_hard_cmd)
+app.command("nuke")(nuke_cmds.nuke_cmd)
+app.command("nuke-branch")(nuke_cmds.nuke_branch_cmd)
+app.command("whoami")(util_cmds.whoami_cmd)
+app.command("root")(util_cmds.root_cmd)
+app.command("ignored")(util_cmds.ignored_cmd)
+app.command("aliases")(util_cmds.aliases_cmd)
+app.command("repo-info")(util_cmds.repo_info_cmd)
+app.add_typer(util_cmds.config_app, name="config")
 console = Console(stderr=True)
 
 
