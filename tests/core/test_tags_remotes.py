@@ -7,10 +7,15 @@ def test_new_and_list_tags(tmp_git_repo):
 
 
 def test_delete_tag(tmp_git_remote):
+    import subprocess
     tags.new_tag("v0.1.0", cwd=tmp_git_remote)
     tags.push_tag("v0.1.0", cwd=tmp_git_remote)
+    remote_before = subprocess.run(["git", "ls-remote", "--tags", "origin"], cwd=tmp_git_remote, capture_output=True, text=True, check=True).stdout
+    assert "v0.1.0" in remote_before
     tags.delete_tag("v0.1.0", cwd=tmp_git_remote)
     assert "v0.1.0" not in tags.list_tags(tmp_git_remote)
+    remote_after = subprocess.run(["git", "ls-remote", "--tags", "origin"], cwd=tmp_git_remote, capture_output=True, text=True, check=True).stdout
+    assert "v0.1.0" not in remote_after
 
 
 def test_push_all_tags(tmp_git_remote):
