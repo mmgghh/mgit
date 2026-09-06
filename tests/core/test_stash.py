@@ -57,3 +57,19 @@ def test_stash_show_diff(tmp_git_repo):
     stash.stash_save(cwd=tmp_git_repo)
     diff = stash.stash_show(cwd=tmp_git_repo)
     assert "dirty.txt" in diff
+
+
+def test_stash_operations_with_explicit_index(tmp_git_repo):
+    Path(tmp_git_repo, "first.txt").write_text("first")
+    stash.stash_save("first stash", cwd=tmp_git_repo)
+    Path(tmp_git_repo, "second.txt").write_text("second")
+    stash.stash_save("second stash", cwd=tmp_git_repo)
+    entries = stash.stash_list(tmp_git_repo)
+    assert len(entries) == 2
+    assert "first stash" in entries[1]
+    diff = stash.stash_show(index=1, cwd=tmp_git_repo)
+    assert "first.txt" in diff
+    stash.stash_drop(index=1, cwd=tmp_git_repo)
+    remaining = stash.stash_list(tmp_git_repo)
+    assert len(remaining) == 1
+    assert "second stash" in remaining[0]
