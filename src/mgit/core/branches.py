@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ..git.repo import current_branch, default_remote, infer_base_branch
-from ..git.runner import run
+from ..git.runner import GitCommandError, run
 
 
 def list_branches(cwd: str | None = None) -> list[str]:
@@ -39,7 +39,7 @@ def delete_remote_branch(name: str, remote: str | None = None, cwd: str | None =
 
 def rename_branch(old: str, new: str, cwd: str | None = None) -> None:
     if new in list_branches(cwd):
-        raise ValueError(f"branch '{new}' already exists")
+        raise GitCommandError(["branch", "-m", old, new], 1, f"branch '{new}' already exists")
     run(["branch", "-m", old, new], cwd=cwd)
 
 

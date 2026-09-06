@@ -1,7 +1,10 @@
 from pathlib import Path
 import subprocess
 
+import pytest
+
 from mgit.core import branches
+from mgit.git.runner import GitCommandError
 
 
 def _commit(repo, filename, content, message):
@@ -67,3 +70,11 @@ def test_branch_report(tmp_git_repo):
     assert report["base"] == "main"
     assert len(report["commits"]) == 1
     assert any("y.txt" in f for f in report["files"])
+
+
+def test_rename_branch_refuses_existing_name(tmp_git_repo):
+    branches.new_branch("existing", cwd=tmp_git_repo)
+    branches.switch_branch("main", cwd=tmp_git_repo)
+    branches.new_branch("to-rename", cwd=tmp_git_repo)
+    with pytest.raises(GitCommandError):
+        branches.rename_branch("to-rename", "existing", cwd=tmp_git_repo)
