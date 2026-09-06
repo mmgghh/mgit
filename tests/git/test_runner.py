@@ -11,6 +11,7 @@ def test_run_raises_on_failure(tmp_git_repo):
         run(["not-a-real-command"], cwd=tmp_git_repo)
     assert exc.value.returncode != 0
     assert "not-a-real-command" in str(exc.value)
+    assert exc.value.command == ["not-a-real-command"]
 
 
 def test_run_no_check_does_not_raise(tmp_git_repo):

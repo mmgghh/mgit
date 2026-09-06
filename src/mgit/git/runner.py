@@ -5,7 +5,7 @@ import subprocess
 
 class GitCommandError(RuntimeError):
     def __init__(self, args: list[str], returncode: int, stderr: str) -> None:
-        self.args = args
+        self.command = args
         self.returncode = returncode
         self.stderr = stderr
         super().__init__(f"git {' '.join(args)} failed ({returncode}): {stderr.strip()}")
