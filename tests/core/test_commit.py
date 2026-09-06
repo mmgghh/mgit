@@ -43,3 +43,16 @@ def test_undo_hard_discards_files(tmp_git_repo):
     commit.commit("add d", cwd=tmp_git_repo)
     commit.undo(hard=True, cwd=tmp_git_repo)
     assert not Path(tmp_git_repo, "d.txt").exists()
+
+
+def test_amend_push_after_force_pushes(tmp_git_remote):
+    Path(tmp_git_remote, "e.txt").write_text("e")
+    commit.commit("add e", cwd=tmp_git_remote)
+    run(["push"], cwd=tmp_git_remote)
+    Path(tmp_git_remote, "f.txt").write_text("f")
+    run(["add", "."], cwd=tmp_git_remote)
+    commit.amend(cwd=tmp_git_remote, push_after=True)
+    remote_subject = run(["log", "origin/main", "-1", "--format=%s"], cwd=tmp_git_remote)
+    assert remote_subject == "add e"
+    remote_files = run(["ls-tree", "-r", "--name-only", "origin/main"], cwd=tmp_git_remote).splitlines()
+    assert "f.txt" in remote_files
