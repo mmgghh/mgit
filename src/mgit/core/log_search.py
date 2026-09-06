@@ -58,7 +58,7 @@ def search(f: LogFilter, cwd: str | None = None) -> list[Commit]:
     for line in out.splitlines():
         if not line:
             continue
-        sha, short_sha, author, date, subject = line.split(_FIELD_SEP)
+        sha, short_sha, author, date, subject = line.split(_FIELD_SEP, 4)
         commits.append(Commit(sha, short_sha, author, date, subject))
     return commits
 

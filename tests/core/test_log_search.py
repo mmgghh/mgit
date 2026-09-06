@@ -80,3 +80,33 @@ def test_diff_between_refs(tmp_git_repo):
     _seed(tmp_git_repo)
     out = diff(ref_a="HEAD~2", ref_b="HEAD", cwd=tmp_git_repo)
     assert "b.txt" in out and "c.txt" in out
+
+
+def test_search_by_branch(tmp_git_repo):
+    _seed(tmp_git_repo)
+    subprocess.run(["git", "checkout", "-b", "feature"], cwd=tmp_git_repo, check=True, capture_output=True)
+    _commit_as(tmp_git_repo, "d.txt", "d", "feature commit", "Alice", "alice@example.com", "2026-03-02T10:00:00")
+    subprocess.run(["git", "checkout", "main"], cwd=tmp_git_repo, check=True, capture_output=True)
+    commits_main = search(LogFilter(), cwd=tmp_git_repo)
+    commits_feature = search(LogFilter(branch="feature"), cwd=tmp_git_repo)
+    assert "feature commit" not in [c.subject for c in commits_main]
+    assert "feature commit" in [c.subject for c in commits_feature]
+
+
+def test_search_returns_full_commit_metadata(tmp_git_repo):
+    _seed(tmp_git_repo)
+    commits = search(LogFilter(limit=1), cwd=tmp_git_repo)
+    commit = commits[0]
+    assert commit.subject == "alice: fix bug"
+    assert commit.author == "Alice"
+    assert commit.date.startswith("2026-03-01")
+    assert len(commit.sha) == 40
+    assert commit.sha.startswith(commit.short_sha)
+
+
+def test_search_handles_subject_with_field_separator_byte(tmp_git_repo):
+    Path(tmp_git_repo, "weird.txt").write_text("x")
+    subprocess.run(["git", "add", "."], cwd=tmp_git_repo, check=True)
+    subprocess.run(["git", "commit", "-m", "odd\x1fsubject"], cwd=tmp_git_repo, check=True, capture_output=True)
+    commits = search(LogFilter(limit=1), cwd=tmp_git_repo)
+    assert commits[0].subject == "odd\x1fsubject"
