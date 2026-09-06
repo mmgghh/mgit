@@ -9,6 +9,13 @@ from ..git.runner import GitCommandError
 from .branch_cmds import app as branch_app
 from . import sync_cmds
 from . import commit_cmds
+from .merge_rebase_cmds import (
+    cherry_pick_app,
+    conflicts_app,
+    merge_app,
+    rebase_app,
+    revert_app,
+)
 
 app = typer.Typer(
     name="mgit",
@@ -16,6 +23,11 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 app.add_typer(branch_app, name="branch")
+app.add_typer(rebase_app, name="rebase")
+app.add_typer(merge_app, name="merge")
+app.add_typer(cherry_pick_app, name="cherry-pick")
+app.add_typer(revert_app, name="revert")
+app.add_typer(conflicts_app, name="conflicts")
 app.command("push")(sync_cmds.push_cmd)
 app.command("pull")(sync_cmds.pull_cmd)
 app.command("fetch")(sync_cmds.fetch_cmd)
