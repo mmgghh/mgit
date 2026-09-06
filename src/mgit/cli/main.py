@@ -8,6 +8,8 @@ from rich.console import Console
 from ..git.runner import GitCommandError
 from .branch_cmds import app as branch_app
 from .stash_cmds import app as stash_app
+from .tag_cmds import app as tag_app
+from .remote_cmds import app as remote_app
 from . import sync_cmds
 from . import commit_cmds
 from . import log_cmds
@@ -26,6 +28,8 @@ app = typer.Typer(
 )
 app.add_typer(branch_app, name="branch")
 app.add_typer(stash_app, name="stash")
+app.add_typer(tag_app, name="tag")
+app.add_typer(remote_app, name="remote")
 app.add_typer(rebase_app, name="rebase")
 app.add_typer(merge_app, name="merge")
 app.add_typer(cherry_pick_app, name="cherry-pick")
