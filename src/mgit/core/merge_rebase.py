@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..git.runner import run
+from ..git.runner import GitCommandError, run
 
 _CONFLICT_LABELS = {
     "UU": "both modified",
@@ -63,12 +63,16 @@ def list_conflicts(cwd: str | None = None) -> list[tuple[str, str]]:
     result = []
     for line in out.splitlines():
         if line.startswith("u "):
-            parts = line.split()
-            xy, path = parts[1], parts[-1]
+            # Fixed fields are "u XY sub m1 m2 m3 mW h1 h2 h3" (10 tokens);
+            # everything after is the path, which may itself contain spaces.
+            parts = line.split(maxsplit=10)
+            xy, path = parts[1], parts[10]
             result.append((path, _CONFLICT_LABELS.get(xy, xy)))
     return result
 
 
 def conflict_side(path: str, side: str, cwd: str | None = None) -> str:
+    if side not in _STAGE:
+        raise GitCommandError(["show", f":{side}:{path}"], 1, f"invalid side '{side}', expected 'base', 'ours', or 'theirs'")
     stage = _STAGE[side]
     return run(["show", f":{stage}:{path}"], cwd=cwd)
