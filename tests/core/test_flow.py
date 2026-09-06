@@ -58,3 +58,21 @@ def test_hotfix_start_finish_tags_and_merges_both(tmp_git_repo):
     assert "1.0.1" in run(["tag"], cwd=tmp_git_repo).splitlines()
     develop_files = run(["ls-tree", "-r", "--name-only", "develop"], cwd=tmp_git_repo).splitlines()
     assert "fix.txt" in develop_files
+
+
+def test_release_list(tmp_git_repo):
+    flow.init_flow(cwd=tmp_git_repo)
+    flow.release_start("1.0.0", cwd=tmp_git_repo)
+    assert flow.release_list(tmp_git_repo) == ["release/1.0.0"]
+    _commit(tmp_git_repo, "CHANGELOG.md", "1.0.0", "prep release")
+    flow.release_finish("1.0.0", cwd=tmp_git_repo)
+    assert flow.release_list(tmp_git_repo) == []
+
+
+def test_hotfix_list(tmp_git_repo):
+    flow.init_flow(cwd=tmp_git_repo)
+    flow.hotfix_start("1.0.1", cwd=tmp_git_repo)
+    assert flow.hotfix_list(tmp_git_repo) == ["hotfix/1.0.1"]
+    _commit(tmp_git_repo, "fix.txt", "fix", "urgent fix")
+    flow.hotfix_finish("1.0.1", cwd=tmp_git_repo)
+    assert flow.hotfix_list(tmp_git_repo) == []
