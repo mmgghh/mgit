@@ -1,0 +1,22 @@
+[project]
+name = "mgit"
+version = "0.1.0"
+description = "A git wrapper with rich log search, git-flow helpers, and an optional modern TUI."
+requires-python = ">=3.11"
+dependencies = [
+    "typer>=0.12",
+    "rich>=13.0",
+]
+
+[project.scripts]
+mgit = "mgit.cli.main:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
