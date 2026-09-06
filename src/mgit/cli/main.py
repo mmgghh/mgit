@@ -10,6 +10,7 @@ from .branch_cmds import app as branch_app
 from .stash_cmds import app as stash_app
 from . import sync_cmds
 from . import commit_cmds
+from . import log_cmds
 from .merge_rebase_cmds import (
     cherry_pick_app,
     conflicts_app,
@@ -38,6 +39,8 @@ app.command("commit")(commit_cmds.commit_cmd)
 app.command("commit-empty")(commit_cmds.commit_empty_cmd)
 app.command("amend")(commit_cmds.amend_cmd)
 app.command("undo")(commit_cmds.undo_cmd)
+app.command("log")(log_cmds.log_cmd)
+app.command("diff")(log_cmds.diff_cmd)
 console = Console(stderr=True)
 
 
