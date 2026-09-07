@@ -1,7 +1,10 @@
 from pathlib import Path
 import subprocess
 
+import pytest
+
 from mgit.core import nuke, repo_info
+from mgit.git.runner import GitCommandError
 
 
 def _commit(repo, filename, content, message):
@@ -62,3 +65,9 @@ def test_summary(tmp_git_repo):
     assert info["root"] == tmp_git_repo
     assert info["branch"] == "main"
     assert info["in_progress"] is None
+
+
+def test_nuke_branch_raises_git_command_error_on_detached_head(tmp_git_remote):
+    subprocess.run(["git", "checkout", "--detach"], cwd=tmp_git_remote, check=True, capture_output=True)
+    with pytest.raises(GitCommandError):
+        nuke.nuke_branch(cwd=tmp_git_remote)

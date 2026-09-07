@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..git.repo import current_branch, default_remote, infer_base_branch
+from ..git.repo import default_remote, infer_base_branch, require_branch
 from ..git.runner import GitCommandError, run
 
 
@@ -67,7 +67,7 @@ def prune_gone(force: bool = False, cwd: str | None = None) -> list[str]:
 
 
 def branch_report(branch: str | None = None, base: str | None = None, cwd: str | None = None) -> dict:
-    branch = branch or current_branch(cwd)
+    branch = branch or require_branch(cwd)
     base = base or infer_base_branch(cwd)
     merge_base = run(["merge-base", base, branch], cwd=cwd)
     commits = [c for c in run(["log", "--oneline", f"{merge_base}..{branch}"], cwd=cwd).splitlines() if c]

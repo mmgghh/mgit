@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..git.repo import current_branch
+from ..git.repo import require_branch
 from ..git.runner import run
 
 
@@ -14,5 +14,5 @@ def nuke(cwd: str | None = None) -> str:
 
 
 def nuke_branch(cwd: str | None = None) -> str:
-    branch = current_branch(cwd)
+    branch = require_branch(cwd)
     return run(["reset", "--hard", f"{branch}@{{upstream}}"], cwd=cwd)

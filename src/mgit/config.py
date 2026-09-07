@@ -8,13 +8,6 @@ from .git.repo import is_git_repo, repo_root
 
 DEFAULTS: dict[str, Any] = {
     "log": {"limit": 30},
-    "flow": {
-        "main_branch": "main",
-        "develop_branch": "develop",
-        "feature_prefix": "feature/",
-        "release_prefix": "release/",
-        "hotfix_prefix": "hotfix/",
-    },
 }
 
 

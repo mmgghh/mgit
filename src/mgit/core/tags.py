@@ -14,8 +14,9 @@ def new_tag(name: str, message: str | None = None, cwd: str | None = None) -> st
 
 
 def delete_tag(name: str, cwd: str | None = None) -> None:
+    remote = default_remote(cwd)
     run(["tag", "-d", name], cwd=cwd)
-    run(["push", default_remote(cwd), "--delete", name], cwd=cwd)
+    run(["push", remote, "--delete", name], cwd=cwd)
 
 
 def push_tag(name: str | None = None, cwd: str | None = None) -> str:

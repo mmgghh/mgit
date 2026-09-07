@@ -78,3 +78,9 @@ def test_rename_branch_refuses_existing_name(tmp_git_repo):
     branches.new_branch("to-rename", cwd=tmp_git_repo)
     with pytest.raises(GitCommandError):
         branches.rename_branch("to-rename", "existing", cwd=tmp_git_repo)
+
+
+def test_branch_report_raises_git_command_error_on_detached_head(tmp_git_repo):
+    subprocess.run(["git", "checkout", "--detach"], cwd=tmp_git_repo, check=True, capture_output=True)
+    with pytest.raises(GitCommandError):
+        branches.branch_report(cwd=tmp_git_repo)

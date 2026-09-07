@@ -25,6 +25,12 @@ def is_detached(cwd: str | None = None) -> bool:
     return current_branch(cwd) is None
 
 
+def require_branch(cwd: str | None = None) -> str:
+    if is_detached(cwd):
+        raise GitCommandError(["status"], 1, "HEAD is detached; checkout a branch first")
+    return current_branch(cwd)
+
+
 def in_progress_operation(cwd: str | None = None) -> str | None:
     root = Path(repo_root(cwd))
     git_dir = Path(run(["rev-parse", "--git-dir"], cwd=cwd))
