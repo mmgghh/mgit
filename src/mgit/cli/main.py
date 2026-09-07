@@ -3,9 +3,9 @@ from __future__ import annotations
 import sys
 
 import typer
-from rich.console import Console
 
 from ..git.runner import GitCommandError
+from .console import err_console, esc
 from .branch_cmds import app as branch_app
 from .stash_cmds import app as stash_app
 from .tag_cmds import app as tag_app
@@ -57,12 +57,11 @@ app.command("ignored")(util_cmds.ignored_cmd)
 app.command("aliases")(util_cmds.aliases_cmd)
 app.command("repo-info")(util_cmds.repo_info_cmd)
 app.add_typer(util_cmds.config_app, name="config")
-console = Console(stderr=True)
 
 
 def main() -> None:
     try:
         app()
     except GitCommandError as exc:
-        console.print(f"[bold red]Error:[/bold red] {exc.stderr.strip() or exc}")
+        err_console.print(f"[bold red]Error:[/bold red] {esc(exc.stderr.strip() or str(exc))}")
         sys.exit(exc.returncode or 1)

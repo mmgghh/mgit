@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import typer
-from rich.console import Console
 
+from .. import config as cfg
 from ..core.log_search import LogFilter, diff as diff_core, search
-
-console = Console()
+from .console import console, emit_raw, esc
 
 
 def log_cmd(
@@ -19,13 +18,17 @@ def log_cmd(
     no_merges: bool = typer.Option(False, "--no-merges"),
     limit: int = typer.Option(None, "--limit", "-n"),
 ) -> None:
+    """Search commit history with author/date/message/path/branch filters."""
     merge_filter = True if merges else (False if no_merges else None)
+    if limit is None:
+        configured_limit = cfg.get("log.limit")
+        limit = int(configured_limit) if configured_limit is not None else None
     f = LogFilter(
         author=author, since=since, until=until, grep=grep,
         path=path, branch=branch, merges=merge_filter, limit=limit,
     )
     for c in search(f):
-        console.print(f"[yellow]{c.short_sha}[/yellow] [cyan]{c.date[:10]}[/cyan] [green]{c.author}[/green] {c.subject}")
+        console.print(f"[yellow]{c.short_sha}[/yellow] [cyan]{c.date[:10]}[/cyan] [green]{esc(c.author)}[/green] {esc(c.subject)}")
 
 
 def diff_cmd(
@@ -33,4 +36,5 @@ def diff_cmd(
     ref_b: str = typer.Argument(None),
     staged: bool = typer.Option(False, "--staged"),
 ) -> None:
-    console.print(diff_core(staged=staged, ref_a=ref_a, ref_b=ref_b))
+    """Show a diff between refs, or the working tree/staged changes."""
+    emit_raw(diff_core(staged=staged, ref_a=ref_a, ref_b=ref_b))
