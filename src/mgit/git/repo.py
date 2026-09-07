@@ -26,9 +26,10 @@ def is_detached(cwd: str | None = None) -> bool:
 
 
 def require_branch(cwd: str | None = None) -> str:
-    if is_detached(cwd):
+    branch = current_branch(cwd)
+    if branch is None:
         raise GitCommandError(["status"], 1, "HEAD is detached; checkout a branch first")
-    return current_branch(cwd)
+    return branch
 
 
 def in_progress_operation(cwd: str | None = None) -> str | None:

@@ -72,6 +72,15 @@ def test_log_falls_back_to_configured_limit(tmp_git_repo, monkeypatch, tmp_path)
     assert result.stdout.count("\n") == 1
 
 
+def test_log_falls_back_to_default_on_non_numeric_configured_limit(tmp_git_repo, monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.chdir(tmp_git_repo)
+    cfg.set_value("log.limit", "high", cwd=tmp_git_repo)
+    result = runner.invoke(app, ["log"])
+    assert result.exit_code == 0
+    assert "Traceback" not in result.stdout
+
+
 def test_help_text_present_for_commands():
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0

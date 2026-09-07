@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import typer
-from rich.console import Console
 
 from ..core import commit
-
-console = Console()
+from .console import console
 
 
 def commit_cmd(message: str) -> None:

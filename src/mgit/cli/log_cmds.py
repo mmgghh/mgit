@@ -22,7 +22,10 @@ def log_cmd(
     merge_filter = True if merges else (False if no_merges else None)
     if limit is None:
         configured_limit = cfg.get("log.limit")
-        limit = int(configured_limit) if configured_limit is not None else None
+        try:
+            limit = int(configured_limit) if configured_limit is not None else None
+        except (TypeError, ValueError):
+            limit = 30
     f = LogFilter(
         author=author, since=since, until=until, grep=grep,
         path=path, branch=branch, merges=merge_filter, limit=limit,

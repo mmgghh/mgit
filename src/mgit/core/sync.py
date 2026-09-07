@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..git.repo import current_branch, default_remote, has_upstream, require_branch
+from ..git.repo import default_remote, has_upstream, require_branch
 from ..git.runner import run
 
 
