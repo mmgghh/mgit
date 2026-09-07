@@ -79,7 +79,8 @@ def _toml_scalar(value: Any) -> str:
         return "true" if value else "false"
     if isinstance(value, (int, float)):
         return str(value)
-    return '"' + str(value).replace('"', '\\"') + '"'
+    escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
+    return '"' + escaped + '"'
 
 
 def _render_table(section: str, data: dict) -> str:

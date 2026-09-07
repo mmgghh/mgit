@@ -51,6 +51,12 @@ def test_aliases_empty_by_default(tmp_git_repo):
     assert repo_info.aliases(tmp_git_repo) == []
 
 
+def test_aliases_returns_configured_aliases(tmp_git_repo):
+    subprocess.run(["git", "config", "alias.co", "checkout"], cwd=tmp_git_repo, check=True)
+    result = repo_info.aliases(tmp_git_repo)
+    assert any("alias.co" in line and "checkout" in line for line in result)
+
+
 def test_summary(tmp_git_repo):
     info = repo_info.summary(tmp_git_repo)
     assert info["root"] == tmp_git_repo
