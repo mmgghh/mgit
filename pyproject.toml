@@ -8,6 +8,10 @@ dependencies = [
     "rich>=13.0",
 ]
 
+[project.optional-dependencies]
+tui = ["textual>=0.60"]
+dev = ["pytest-asyncio>=0.24"]
+
 [project.scripts]
 mgit = "mgit.cli.main:main"
 
@@ -20,3 +24,4 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
