@@ -11,6 +11,8 @@ from textual.widgets import DataTable, Input, Static
 from ...core.log_search import Commit, LogFilter, diff, search
 from ...git.runner import GitCommandError
 
+_EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
 
 class DiffScreen(ModalScreen[None]):
     BINDINGS = [("escape", "dismiss_screen", "Close")]
@@ -101,7 +103,10 @@ class LogView(Widget):
     def show_diff(self, sha: str) -> None:
         try:
             text = diff(ref_a=f"{sha}^", ref_b=sha, cwd=self.cwd)
-        except GitCommandError as exc:
-            self.app.call_from_thread(self.app.notify, str(exc), severity="error", markup=False)
-            return
+        except GitCommandError:
+            try:
+                text = diff(ref_a=_EMPTY_TREE_SHA, ref_b=sha, cwd=self.cwd)
+            except GitCommandError as exc:
+                self.app.call_from_thread(self.app.notify, str(exc), severity="error", markup=False)
+                return
         self.app.call_from_thread(self.app.push_screen, DiffScreen(text))
