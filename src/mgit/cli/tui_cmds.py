@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .console import console, esc
+from .console import err_console, esc
 
 
 def tui_cmd() -> None:
@@ -8,7 +8,7 @@ def tui_cmd() -> None:
     try:
         from ..tui.app import MgitApp
     except ImportError:
-        console.print(
+        err_console.print(
             f"[bold red]Error:[/bold red] the TUI needs the 'tui' extra. "
             f"Install it with: pip install mgit{esc('[tui]')}"
         )
