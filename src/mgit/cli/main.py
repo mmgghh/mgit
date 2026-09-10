@@ -14,6 +14,7 @@ from .flow_cmds import app as flow_app
 from . import sync_cmds
 from . import commit_cmds
 from . import log_cmds
+from . import tui_cmds
 from .merge_rebase_cmds import (
     cherry_pick_app,
     conflicts_app,
@@ -56,6 +57,7 @@ app.command("root")(util_cmds.root_cmd)
 app.command("ignored")(util_cmds.ignored_cmd)
 app.command("aliases")(util_cmds.aliases_cmd)
 app.command("repo-info")(util_cmds.repo_info_cmd)
+app.command("tui")(tui_cmds.tui_cmd)
 app.add_typer(util_cmds.config_app, name="config")
 
 
