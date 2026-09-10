@@ -37,7 +37,14 @@ Global config: `~/.config/mgit/config.toml`. Per-repo override: `.mgit.toml`
 at the repo root. Read a value with `mgit config get <key>`, write one with
 `mgit config set <key> <value>` (add `--global` to write to the global file).
 
-## Optional TUI
+## TUI
 
-A Textual-based interactive TUI is planned as a future addition on top of
-this same command surface; today `mgit` is CLI-only.
+An interactive Textual-based TUI is available as an optional extra:
+
+    pip install mgit[tui]
+    mgit tui
+
+It currently covers repo status (`r` to refresh), branch list/switch
+(`Enter` to switch), and a commit log browser with author/since/until/grep
+filters (`d` on a commit to view its diff). Stash, git-flow, merge/rebase,
+and other mutating operations stay CLI-only for now.
