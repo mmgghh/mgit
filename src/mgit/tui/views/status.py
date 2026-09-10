@@ -56,7 +56,7 @@ class StatusView(Widget):
             info = repo_info.summary(self.cwd)
             tree = status_core.working_tree_status(self.cwd)
         except GitCommandError as exc:
-            self.app.call_from_thread(self.app.notify, str(exc), severity="error")
+            self.app.call_from_thread(self.app.notify, str(exc), severity="error", markup=False)
             return
         text = _render_status(info, tree)
         self.app.call_from_thread(self._apply, text)
