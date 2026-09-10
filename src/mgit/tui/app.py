@@ -4,6 +4,7 @@ from textual.app import App, ComposeResult
 from textual.widgets import Footer, Header, Static, TabbedContent, TabPane
 
 from ..git.repo import is_git_repo
+from .views.status import StatusView
 
 
 class MgitApp(App):
@@ -20,7 +21,7 @@ class MgitApp(App):
         else:
             with TabbedContent(initial="status-tab"):
                 with TabPane("Status", id="status-tab"):
-                    yield Static("Status", id="status-placeholder")
+                    yield StatusView(self.cwd)
                 with TabPane("Branches", id="branches-tab"):
                     yield Static("Branches", id="branches-placeholder")
                 with TabPane("Log", id="log-tab"):
