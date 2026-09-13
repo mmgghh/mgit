@@ -4,7 +4,7 @@ import shlex
 
 from textual import on
 from textual.app import ComposeResult
-from textual.containers import Vertical, VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.message import Message
 from textual.screen import ModalScreen
 from textual.widget import Widget
@@ -14,6 +14,14 @@ from textual.widgets.option_list import Option
 from ...cli.main import app as mgit_cli_app
 from ..run.discovery import CommandEntry, discover_commands
 from ..run.fields import FlagField, IntField, RefField, TextField, build_field, render_tokens
+
+
+CONFIRM_COMMANDS: dict[tuple[str, ...], str] = {
+    ("nuke",): "--yes",
+    ("nuke-branch",): "--yes",
+    ("reset-hard",): "--yes",
+    ("tag", "delete"): "--yes",
+}
 
 
 class RunView(Widget):
@@ -61,6 +69,32 @@ class RunView(Widget):
         self.app.push_screen(CommandFormScreen(entry, self.cwd))
 
 
+class ConfirmScreen(ModalScreen[bool]):
+    BINDINGS = [("escape", "cancel", "Cancel")]
+
+    def __init__(self, message: str) -> None:
+        super().__init__()
+        self.message = message
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="confirm-dialog"):
+            yield Static(self.message, id="confirm-message")
+            with Horizontal():
+                yield Button("Yes", id="confirm-yes", variant="error")
+                yield Button("No", id="confirm-no", variant="primary")
+
+    def action_cancel(self) -> None:
+        self.dismiss(False)
+
+    @on(Button.Pressed, "#confirm-yes")
+    def _yes(self) -> None:
+        self.dismiss(True)
+
+    @on(Button.Pressed, "#confirm-no")
+    def _no(self) -> None:
+        self.dismiss(False)
+
+
 class CommandFormScreen(ModalScreen[None]):
     BINDINGS = [("escape", "dismiss_screen", "Back")]
 
@@ -73,7 +107,10 @@ class CommandFormScreen(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="run-fields", can_focus=False):
             yield Static(" ".join(["mgit", *self.entry.path]), id="run-form-title")
+            confirm_gated = tuple(self.entry.path) in CONFIRM_COMMANDS
             for param in self.entry.command.params:
+                if confirm_gated and param.name == "yes":
+                    continue
                 spec = build_field(self.entry.path, param)
                 if spec is None:
                     continue
@@ -109,6 +146,24 @@ class CommandFormScreen(ModalScreen[None]):
     @on(Switch.Changed)
     def _on_change(self) -> None:
         self._refresh_preview()
+
+    @on(Button.Pressed, "#run-button")
+    def _on_run_pressed(self) -> None:
+        self.action_run()
+
+    def action_run(self) -> None:
+        argv = self._current_argv()
+        confirm_flag = CONFIRM_COMMANDS.get(tuple(self.entry.path))
+        if confirm_flag is not None:
+            self.app.push_screen(
+                ConfirmScreen(f"Run mgit {' '.join(argv)}?"),
+                lambda confirmed: self._on_confirmed(confirmed, [*argv, confirm_flag]),
+            )
+            return
+
+    def _on_confirmed(self, confirmed: bool | None, argv: list[str]) -> None:
+        if confirmed:
+            pass  # execution wired up in Task 7
 
 
 class _PreviewStatic(Static):

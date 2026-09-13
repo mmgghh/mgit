@@ -3,7 +3,7 @@ from textual.widgets import Button, Input, OptionList, Select, Static, Switch
 
 from mgit.tui.run.discovery import discover_commands
 from mgit.cli.main import app as mgit_cli_app
-from mgit.tui.views.run import RunView, CommandFormScreen
+from mgit.tui.views.run import RunView, CommandFormScreen, ConfirmScreen
 
 
 class _Harness(App):
@@ -87,3 +87,38 @@ async def test_form_preview_updates_when_a_flag_is_toggled(tmp_git_repo):
         await pilot.pause()
         preview = screen.query_one("#run-preview", Static).renderable
         assert "--force" in str(preview)
+
+
+async def test_confirm_gated_command_hides_its_yes_flag_and_shows_no_switch(tmp_git_repo):
+    entries = discover_commands(mgit_cli_app)
+    target = next(e for e in entries if e.path == ["nuke"])
+
+    app = _Harness(tmp_git_repo)
+    async with app.run_test() as pilot:
+        option_list = app.query_one("#run-commands", OptionList)
+        index = next(i for i, e in enumerate(entries) if e.path == target.path)
+        option_list.highlighted = index
+        option_list.action_select()
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, CommandFormScreen)
+        assert len(screen.query(Switch)) == 0  # "yes" flag is suppressed, not shown as a toggle
+
+
+async def test_running_confirm_gated_command_shows_confirm_screen_first(tmp_git_repo):
+    entries = discover_commands(mgit_cli_app)
+    target = next(e for e in entries if e.path == ["tag", "delete"])
+
+    app = _Harness(tmp_git_repo)
+    async with app.run_test() as pilot:
+        option_list = app.query_one("#run-commands", OptionList)
+        index = next(i for i, e in enumerate(entries) if e.path == target.path)
+        option_list.highlighted = index
+        option_list.action_select()
+        await pilot.pause()
+
+        form = app.screen
+        form.query_one("#run-button", Button).press()
+        await pilot.pause()
+        assert isinstance(app.screen, ConfirmScreen)
