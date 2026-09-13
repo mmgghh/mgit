@@ -1,9 +1,9 @@
 from textual.app import App, ComposeResult
-from textual.widgets import Input, OptionList
+from textual.widgets import Button, Input, OptionList, Select, Static, Switch
 
 from mgit.tui.run.discovery import discover_commands
 from mgit.cli.main import app as mgit_cli_app
-from mgit.tui.views.run import RunView
+from mgit.tui.views.run import RunView, CommandFormScreen
 
 
 class _Harness(App):
@@ -17,6 +17,7 @@ class _Harness(App):
 
     def on_run_view_command_chosen(self, message) -> None:
         self.chosen.append(message.entry)
+        self.push_screen(CommandFormScreen(message.entry, self.cwd))
 
 
 async def test_run_view_lists_all_commands(tmp_git_repo):
@@ -49,3 +50,40 @@ async def test_run_view_selecting_an_option_reports_the_entry(tmp_git_repo):
         option_list.action_select()
         await pilot.pause()
         assert app.chosen == [target]
+
+
+async def test_selecting_a_command_opens_its_form(tmp_git_repo):
+    entries = discover_commands(mgit_cli_app)
+    target = next(e for e in entries if e.path == ["branch", "delete"])
+
+    app = _Harness(tmp_git_repo)
+    async with app.run_test() as pilot:
+        option_list = app.query_one("#run-commands", OptionList)
+        index = next(i for i, e in enumerate(entries) if e.path == target.path)
+        option_list.highlighted = index
+        option_list.action_select()
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, CommandFormScreen)
+        assert isinstance(screen.query_one(Select), Select)  # git-aware "name" field
+        assert isinstance(screen.query_one(Switch), Switch)  # "force" flag
+
+
+async def test_form_preview_updates_when_a_flag_is_toggled(tmp_git_repo):
+    entries = discover_commands(mgit_cli_app)
+    target = next(e for e in entries if e.path == ["branch", "delete"])
+
+    app = _Harness(tmp_git_repo)
+    async with app.run_test() as pilot:
+        option_list = app.query_one("#run-commands", OptionList)
+        index = next(i for i, e in enumerate(entries) if e.path == target.path)
+        option_list.highlighted = index
+        option_list.action_select()
+        await pilot.pause()
+
+        screen = app.screen
+        screen.query_one(Switch).value = True
+        await pilot.pause()
+        preview = screen.query_one("#run-preview", Static).renderable
+        assert "--force" in str(preview)
