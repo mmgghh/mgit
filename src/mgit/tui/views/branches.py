@@ -13,6 +13,7 @@ from ...git.runner import GitCommandError
 
 
 class BranchesView(Widget):
+    DEFAULT_CSS = "BranchesView { height: 1fr; }"
     BINDINGS = [("r", "refresh_branches", "Refresh")]
 
     def __init__(self, cwd: str | None = None) -> None:

@@ -34,6 +34,7 @@ def _render_status(info: dict, tree: status_core.WorkingTreeStatus) -> Text:
 
 
 class StatusView(Widget):
+    DEFAULT_CSS = "StatusView { height: 1fr; }"
     BINDINGS = [("r", "refresh_status", "Refresh")]
     can_focus = True
 

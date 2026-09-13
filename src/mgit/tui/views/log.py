@@ -30,6 +30,7 @@ class DiffScreen(ModalScreen[None]):
 
 
 class LogView(Widget):
+    DEFAULT_CSS = "LogView { height: 1fr; }"
     BINDINGS = [
         ("r", "refresh_log", "Refresh"),
         ("d", "show_selected_diff", "Diff"),
