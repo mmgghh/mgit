@@ -39,25 +39,9 @@ class RunView(Widget):
         if event.input.id != "run-search":
             return
         query = event.value.strip().lower()
-
-        def matches(entry: CommandEntry) -> bool:
-            path_str = " ".join(entry.path).lower()
-            help_str = entry.help.lower()
-            # Check if the query appears as a substring in the path (word boundary aware)
-            # Only matches if query is not a substring of a hyphenated component
-            # E.g., "branch delete" matches "branch delete" but not "branch delete-remote"
-            path_lower = [p.lower() for p in entry.path]
-            query_words = query.split()
-            # First check: query words appear consecutively as complete components
-            for i in range(len(path_lower) - len(query_words) + 1):
-                if path_lower[i:i + len(query_words)] == query_words:
-                    return True
-            # Second check: query appears in help text only (not in path)
-            if query in help_str:
-                return True
-            return False
-
-        self._filtered = [e for e in self._entries if matches(e)]
+        self._filtered = [
+            e for e in self._entries if query in " ".join(e.path).lower() or query in e.help.lower()
+        ]
         option_list = self.query_one("#run-commands", OptionList)
         option_list.clear_options()
         option_list.add_options(self._options(self._filtered))

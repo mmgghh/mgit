@@ -30,8 +30,8 @@ async def test_run_view_search_filters_list(tmp_git_repo):
     app = _Harness(tmp_git_repo)
     async with app.run_test() as pilot:
         search = app.query_one("#run-search", Input)
-        search.value = "branch delete"
-        search.post_message(Input.Changed(search, "branch delete"))
+        search.value = "branch new"
+        search.post_message(Input.Changed(search, "branch new"))
         await pilot.pause()
         option_list = app.query_one("#run-commands", OptionList)
         assert option_list.option_count == 1

@@ -4,7 +4,7 @@ from textual.widgets import TabbedContent, TabPane
 from mgit.tui.app import MgitApp
 
 
-async def test_app_shows_three_tabs(tmp_git_repo):
+async def test_app_shows_four_tabs(tmp_git_repo):
     app = MgitApp(tmp_git_repo)
     async with app.run_test():
         tab_ids = [pane.id for pane in app.query(TabPane)]
