@@ -13,6 +13,11 @@ class CommandEntry:
     command: typer.core.TyperCommand
     help: str
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, CommandEntry):
+            return NotImplemented
+        return self.path == other.path and self.help == other.help
+
 
 def discover_commands(typer_app: typer.Typer) -> list[CommandEntry]:
     root = typer.main.get_command(typer_app)
