@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import os
 import shlex
+import subprocess
+import sys
+from pathlib import Path
 
-from textual import on
+from textual import on, work
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.message import Message
@@ -160,10 +164,63 @@ class CommandFormScreen(ModalScreen[None]):
                 lambda confirmed: self._on_confirmed(confirmed, [*argv, confirm_flag]),
             )
             return
+        self._start(argv)
 
     def _on_confirmed(self, confirmed: bool | None, argv: list[str]) -> None:
         if confirmed:
-            pass  # execution wired up in Task 7
+            self._start(argv)
+
+    def _start(self, argv: list[str]) -> None:
+        self.query_one("#run-button", Button).disabled = True
+        self.query_one("#run-output", RichLog).clear()
+        self._run_process(argv)
+
+    @work(thread=True, exclusive=True)
+    def _run_process(self, argv: list[str]) -> None:
+        env = {**os.environ, "FORCE_COLOR": "1"}
+        # Resolve the `mgit` executable next to the *currently running*
+        # interpreter (sys.executable), not a bare "mgit" on PATH. A bare
+        # name can resolve to a completely different install (e.g. a
+        # system/pyenv-wide `mgit`) than the one actually running this TUI
+        # process, silently running the wrong code.
+        mgit_executable = str(Path(sys.executable).parent / "mgit")
+        try:
+            process = subprocess.Popen(
+                [mgit_executable, *argv],
+                cwd=self.cwd,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
+                text=True,
+            )
+        except OSError as exc:
+            self.app.call_from_thread(self.app.notify, str(exc), severity="error", markup=False)
+            self.app.call_from_thread(self._finished, 1)
+            return
+        assert process.stdout is not None
+        for line in process.stdout:
+            self.app.call_from_thread(self._append_output, line.rstrip("\n"))
+        process.wait()
+        code = process.returncode
+        self.app.call_from_thread(self._finished, code)
+
+
+    def _append_output(self, line: str) -> None:
+        """Append a line to the RichLog widget."""
+        try:
+            widget = self.query_one("#run-output", RichLog)
+            widget.write(line)
+        except Exception:
+            # Widget might not be available if the screen was dismissed
+            pass
+
+    def _finished(self, code: int) -> None:
+        try:
+            self.query_one("#run-button", Button).disabled = False
+        except Exception:
+            pass
+        self.app.notify(f"exit {code}", severity="error" if code else "information", title="mgit")
 
 
 class _PreviewStatic(Static):

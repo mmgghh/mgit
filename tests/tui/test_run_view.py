@@ -1,9 +1,10 @@
 from textual.app import App, ComposeResult
-from textual.widgets import Button, Input, OptionList, Select, Static, Switch
+from textual.widgets import Button, Input, OptionList, RichLog, Select, Static, Switch
 
 from mgit.tui.run.discovery import discover_commands
 from mgit.cli.main import app as mgit_cli_app
 from mgit.tui.views.run import RunView, CommandFormScreen, ConfirmScreen
+from mgit.core.branches import list_branches
 
 
 class _Harness(App):
@@ -122,3 +123,28 @@ async def test_running_confirm_gated_command_shows_confirm_screen_first(tmp_git_
         form.query_one("#run-button", Button).press()
         await pilot.pause()
         assert isinstance(app.screen, ConfirmScreen)
+
+
+async def test_running_a_command_streams_output_and_takes_effect(tmp_git_repo):
+    entries = discover_commands(mgit_cli_app)
+    target = next(e for e in entries if e.path == ["branch", "new"])
+
+    app = _Harness(tmp_git_repo)
+    async with app.run_test() as pilot:
+        option_list = app.query_one("#run-commands", OptionList)
+        index = next(i for i, e in enumerate(entries) if e.path == target.path)
+        option_list.highlighted = index
+        option_list.action_select()
+        await pilot.pause()
+
+        form = app.screen
+        text_inputs = form.query(Input)
+        text_inputs[0].value = "from-run-tab"  # "name" argument
+
+        form.query_one("#run-button", Button).press()
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+
+        output = form.query_one("#run-output", RichLog)
+        assert output.lines  # something was written
+        assert "from-run-tab" in list_branches(tmp_git_repo)
