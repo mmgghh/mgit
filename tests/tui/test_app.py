@@ -55,6 +55,7 @@ async def test_running_a_mutating_command_refreshes_other_tabs(tmp_git_repo):
         form = app.screen
         form.query(Input)[0].value = "refreshed-branch"
         form.query_one("#run-button", Button).press()
+        await pilot.pause()
         await app.workers.wait_for_complete()
         await pilot.pause()
         form.dismiss()
