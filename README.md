@@ -44,7 +44,8 @@ An interactive Textual-based TUI is available as an optional extra:
     pip install mgit[tui]
     mgit tui
 
-It currently covers repo status (`r` to refresh), branch list/switch
-(`Enter` to switch), and a commit log browser with author/since/until/grep
-filters (`d` on a commit to view its diff). Stash, git-flow, merge/rebase,
-and other mutating operations stay CLI-only for now.
+It has four tabs: Run (browse, fill in, and execute any mgit command,
+including stash, git-flow, merge/rebase, and other mutating operations),
+Status (`r` to refresh), Branches (list/switch, `Enter` to switch), and Log
+(a commit browser with author/since/until/grep filters, `d` on a commit to
+view its diff).
