@@ -142,6 +142,7 @@ async def test_running_a_command_streams_output_and_takes_effect(tmp_git_repo):
         text_inputs[0].value = "from-run-tab"  # "name" argument
 
         form.query_one("#run-button", Button).press()
+        await pilot.pause()
         await app.workers.wait_for_complete()
         await pilot.pause()
 
