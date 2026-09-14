@@ -222,6 +222,8 @@ class CommandFormScreen(ModalScreen[None]):
         except NoMatches:
             pass
         self.app.notify(f"exit {code}", severity="error" if code else "information", title="mgit")
+        if code == 0 and hasattr(self.app, 'refresh_other_views'):
+            self.app.refresh_other_views()
 
 
 class _PreviewStatic(Static):

@@ -32,3 +32,8 @@ class MgitApp(App):
                 with TabPane("Log", id="log-tab"):
                     yield LogView(self.cwd)
         yield Footer()
+
+    def refresh_other_views(self) -> None:
+        self.query_one(StatusView).refresh_status()
+        self.query_one(BranchesView).refresh_branches()
+        self.query_one(LogView).refresh_log()
