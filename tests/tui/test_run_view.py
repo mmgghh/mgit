@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from textual.app import App, ComposeResult
 from textual.widgets import Button, Input, OptionList, RichLog, Select, Static, Switch
 
@@ -5,6 +7,7 @@ from mgit.tui.run.discovery import discover_commands
 from mgit.cli.main import app as mgit_cli_app
 from mgit.tui.views.run import RunView, CommandFormScreen, ConfirmScreen
 from mgit.core.branches import list_branches
+from mgit.core.tags import new_tag
 
 
 class _Harness(App):
@@ -86,7 +89,7 @@ async def test_form_preview_updates_when_a_flag_is_toggled(tmp_git_repo):
         screen = app.screen
         screen.query_one(Switch).value = True
         await pilot.pause()
-        preview = screen.query_one("#run-preview", Static).renderable
+        preview = screen.query_one("#run-preview", Static).content
         assert "--force" in str(preview)
 
 
@@ -108,6 +111,7 @@ async def test_confirm_gated_command_hides_its_yes_flag_and_shows_no_switch(tmp_
 
 
 async def test_running_confirm_gated_command_shows_confirm_screen_first(tmp_git_repo):
+    new_tag("v1", cwd=tmp_git_repo)
     entries = discover_commands(mgit_cli_app)
     target = next(e for e in entries if e.path == ["tag", "delete"])
 
@@ -120,6 +124,8 @@ async def test_running_confirm_gated_command_shows_confirm_screen_first(tmp_git_
         await pilot.pause()
 
         form = app.screen
+        form.query_one(Select).value = "v1"  # required "name" field
+        await pilot.pause()
         form.query_one("#run-button", Button).press()
         await pilot.pause()
         assert isinstance(app.screen, ConfirmScreen)
@@ -149,3 +155,64 @@ async def test_running_a_command_streams_output_and_takes_effect(tmp_git_repo):
         output = form.query_one("#run-output", RichLog)
         assert output.lines  # something was written
         assert "from-run-tab" in list_branches(tmp_git_repo)
+
+
+async def test_run_refuses_when_a_later_positional_is_set_with_an_earlier_one_blank(tmp_git_repo):
+    entries = discover_commands(mgit_cli_app)
+    target = next(e for e in entries if e.path == ["branch", "new"])
+
+    app = _Harness(tmp_git_repo)
+    async with app.run_test() as pilot:
+        option_list = app.query_one("#run-commands", OptionList)
+        index = next(i for i, e in enumerate(entries) if e.path == target.path)
+        option_list.highlighted = index
+        option_list.action_select()
+        await pilot.pause()
+
+        form = app.screen
+        text_inputs = form.query(Input)
+        # Leave "name" (the first positional) blank, but fill "start_point"
+        # (the second positional) -- this must be rejected rather than
+        # silently binding "start_point"'s value to the "name" slot.
+        text_inputs[1].value = "should-not-be-a-branch"
+
+        notifications = []
+        app.notify = lambda *args, **kwargs: notifications.append((args, kwargs))
+
+        form.query_one("#run-button", Button).press()
+        await pilot.pause()
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+
+        assert notifications  # a validation error was raised
+        output = form.query_one("#run-output", RichLog)
+        assert not output.lines  # the process was never started
+        assert "should-not-be-a-branch" not in list_branches(tmp_git_repo)  # no wrongly-named branch was created
+
+
+async def test_running_nuke_confirms_appends_yes_and_actually_cleans_the_tree(tmp_git_repo):
+    untracked = Path(tmp_git_repo) / "untracked.txt"
+    untracked.write_text("junk")
+
+    entries = discover_commands(mgit_cli_app)
+    target = next(e for e in entries if e.path == ["nuke"])
+
+    app = _Harness(tmp_git_repo)
+    async with app.run_test() as pilot:
+        option_list = app.query_one("#run-commands", OptionList)
+        index = next(i for i, e in enumerate(entries) if e.path == target.path)
+        option_list.highlighted = index
+        option_list.action_select()
+        await pilot.pause()
+
+        form = app.screen
+        form.query_one("#run-button", Button).press()
+        await pilot.pause()
+        assert isinstance(app.screen, ConfirmScreen)
+
+        app.screen.query_one("#confirm-yes", Button).press()
+        await pilot.pause()
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+
+        assert not untracked.exists()  # nuke actually ran (with --yes appended, no CLI prompt hang)
