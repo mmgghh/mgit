@@ -34,6 +34,8 @@ def _walk(group: typer.core.TyperGroup, ctx: typer.Context, path: list[str], ent
         if command is None or command.hidden:
             continue
         sub_path = [*path, name]
+        if sub_path == ["tui"]:
+            continue  # running the TUI from inside itself would spawn a child that never exits
         if isinstance(command, typer.core.TyperGroup):
             sub_ctx = typer.Context(command, info_name=name, parent=ctx)
             _walk(command, sub_ctx, sub_path, entries)
