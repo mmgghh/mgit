@@ -9,6 +9,7 @@ from pathlib import Path
 from textual import on, work
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.css.query import NoMatches
 from textual.message import Message
 from textual.screen import ModalScreen
 from textual.widget import Widget
@@ -211,14 +212,14 @@ class CommandFormScreen(ModalScreen[None]):
         try:
             widget = self.query_one("#run-output", RichLog)
             widget.write(line)
-        except Exception:
+        except NoMatches:
             # Widget might not be available if the screen was dismissed
             pass
 
     def _finished(self, code: int) -> None:
         try:
             self.query_one("#run-button", Button).disabled = False
-        except Exception:
+        except NoMatches:
             pass
         self.app.notify(f"exit {code}", severity="error" if code else "information", title="mgit")
 
