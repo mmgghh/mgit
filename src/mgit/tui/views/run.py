@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
+from rich.text import Text
 from textual import on, work
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -124,7 +126,7 @@ class CommandFormScreen(ModalScreen[None]):
                 required = getattr(spec, "required", False)
                 label_text = spec.label + (" (required)" if required else "")
                 yield Vertical(Label(label_text), widget, classes="field")
-        yield _PreviewStatic(id="run-preview")
+        yield Static(id="run-preview")
         yield Button("Run", id="run-button", variant="primary")
         yield RichLog(id="run-output", highlight=False, markup=False)
 
@@ -142,9 +144,7 @@ class CommandFormScreen(ModalScreen[None]):
 
     def _refresh_preview(self) -> None:
         preview_text = "$ mgit " + shlex.join(self._current_argv())
-        preview_widget = self.query_one("#run-preview", _PreviewStatic)
-        preview_widget.update(preview_text)
-        preview_widget.renderable = preview_text
+        self.query_one("#run-preview", Static).update(preview_text)
 
     @on(Input.Changed)
     @on(Select.Changed)
@@ -156,7 +156,25 @@ class CommandFormScreen(ModalScreen[None]):
     def _on_run_pressed(self) -> None:
         self.action_run()
 
+    def _validation_error(self) -> str | None:
+        seen_blank_positional = False
+        for spec, widget in self.entries:
+            if getattr(spec, "opt", None) is not None:
+                continue  # only positionals (opt is None) can suffer the shifting bug
+            value = _value_of(spec, widget)
+            if not value:
+                if getattr(spec, "required", False):
+                    return f"{spec.label} is required"
+                seen_blank_positional = True
+            elif seen_blank_positional:
+                return f"Cannot set {spec.label} without the earlier positional argument(s)"
+        return None
+
     def action_run(self) -> None:
+        error = self._validation_error()
+        if error is not None:
+            self.app.notify(error, severity="error")
+            return
         argv = self._current_argv()
         confirm_flag = CONFIRM_COMMANDS.get(tuple(self.entry.path))
         if confirm_flag is not None:
@@ -183,8 +201,11 @@ class CommandFormScreen(ModalScreen[None]):
         # interpreter (sys.executable), not a bare "mgit" on PATH. A bare
         # name can resolve to a completely different install (e.g. a
         # system/pyenv-wide `mgit`) than the one actually running this TUI
-        # process, silently running the wrong code.
-        mgit_executable = str(Path(sys.executable).parent / "mgit")
+        # process, silently running the wrong code. Fall back to PATH lookup
+        # (or a bare "mgit") for non-venv installs (e.g. `pip install --user`)
+        # where the console script doesn't live next to sys.executable.
+        candidate = Path(sys.executable).parent / "mgit"
+        mgit_executable = str(candidate) if candidate.exists() else (shutil.which("mgit") or "mgit")
         try:
             process = subprocess.Popen(
                 [mgit_executable, *argv],
@@ -194,43 +215,41 @@ class CommandFormScreen(ModalScreen[None]):
                 stderr=subprocess.STDOUT,
                 stdin=subprocess.DEVNULL,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
             )
         except OSError as exc:
             self.app.call_from_thread(self.app.notify, str(exc), severity="error", markup=False)
-            self.app.call_from_thread(self._finished, 1)
+            self.app.call_from_thread(self._finished, 1, notify=False)
             return
         assert process.stdout is not None
-        for line in process.stdout:
-            self.app.call_from_thread(self._append_output, line.rstrip("\n"))
-        process.wait()
-        code = process.returncode
-        self.app.call_from_thread(self._finished, code)
-
+        code = 1
+        try:
+            for line in process.stdout:
+                self.app.call_from_thread(self._append_output, line.rstrip("\n"))
+            process.wait()
+            code = process.returncode
+        finally:
+            self.app.call_from_thread(self._finished, code)
 
     def _append_output(self, line: str) -> None:
-        """Append a line to the RichLog widget."""
+        """Append a line to the RichLog widget, rendering any ANSI styling."""
         try:
             widget = self.query_one("#run-output", RichLog)
-            widget.write(line)
+            widget.write(Text.from_ansi(line))
         except NoMatches:
             # Widget might not be available if the screen was dismissed
             pass
 
-    def _finished(self, code: int) -> None:
+    def _finished(self, code: int, *, notify: bool = True) -> None:
         try:
             self.query_one("#run-button", Button).disabled = False
         except NoMatches:
             pass
-        self.app.notify(f"exit {code}", severity="error" if code else "information", title="mgit")
+        if notify:
+            self.app.notify(f"exit {code}", severity="error" if code else "information", title="mgit")
         if code == 0 and hasattr(self.app, 'refresh_other_views'):
             self.app.refresh_other_views()
-
-
-class _PreviewStatic(Static):
-    """A Static widget that exposes the renderable content for testing."""
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.renderable = ""
 
 
 def _widget_for(spec, cwd: str | None):
