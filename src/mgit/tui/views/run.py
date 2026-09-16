@@ -103,7 +103,10 @@ class ConfirmScreen(ModalScreen[bool]):
 
 
 class CommandFormScreen(ModalScreen[None]):
-    BINDINGS = [("escape", "dismiss_screen", "Back")]
+    BINDINGS = [
+        ("escape", "dismiss_screen", "Back"),
+        ("ctrl+r", "run", "Run"),
+    ]
 
     def __init__(self, entry: CommandEntry, cwd: str | None) -> None:
         super().__init__()

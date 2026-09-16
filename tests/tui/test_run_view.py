@@ -157,6 +157,32 @@ async def test_running_a_command_streams_output_and_takes_effect(tmp_git_repo):
         assert "from-run-tab" in list_branches(tmp_git_repo)
 
 
+async def test_ctrl_r_runs_the_form(tmp_git_repo):
+    entries = discover_commands(mgit_cli_app)
+    target = next(e for e in entries if e.path == ["branch", "new"])
+
+    app = _Harness(tmp_git_repo)
+    async with app.run_test() as pilot:
+        option_list = app.query_one("#run-commands", OptionList)
+        index = next(i for i, e in enumerate(entries) if e.path == target.path)
+        option_list.highlighted = index
+        option_list.action_select()
+        await pilot.pause()
+
+        form = app.screen
+        text_inputs = form.query(Input)
+        text_inputs[0].value = "from-ctrl-r"  # "name" argument
+
+        await pilot.press("ctrl+r")
+        await pilot.pause()
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+
+        output = form.query_one("#run-output", RichLog)
+        assert output.lines  # something was written
+        assert "from-ctrl-r" in list_branches(tmp_git_repo)
+
+
 async def test_run_refuses_when_a_later_positional_is_set_with_an_earlier_one_blank(tmp_git_repo):
     entries = discover_commands(mgit_cli_app)
     target = next(e for e in entries if e.path == ["branch", "new"])

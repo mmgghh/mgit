@@ -1,7 +1,7 @@
 # tests/tui/test_app.py
-from textual.widgets import TabbedContent, TabPane
+from textual.widgets import Input, TabbedContent, TabPane
 
-from mgit.tui.app import MgitApp
+from mgit.tui.app import HelpScreen, MgitApp
 
 
 async def test_app_shows_four_tabs(tmp_git_repo):
@@ -29,6 +29,27 @@ async def test_app_shows_message_when_not_a_git_repo(tmp_path):
     async with app.run_test():
         assert len(app.query(TabPane)) == 0
         assert app.query_one("#not-a-repo")
+
+
+async def test_f1_opens_and_closes_help(tmp_git_repo):
+    app = MgitApp(tmp_git_repo)
+    async with app.run_test() as pilot:
+        await pilot.press("f1")
+        assert isinstance(app.screen, HelpScreen)
+        await pilot.press("f1")
+        assert not isinstance(app.screen, HelpScreen)
+
+
+async def test_ctrl_b_moves_focus_back(tmp_git_repo):
+    app = MgitApp(tmp_git_repo)
+    async with app.run_test() as pilot:
+        search = app.query_one("#run-search", Input)
+        search.focus()
+        await pilot.pause()
+        await pilot.press("tab")
+        assert app.focused is not search
+        await pilot.press("ctrl+b")
+        assert app.focused is search
 
 
 async def test_running_a_mutating_command_refreshes_other_tabs(tmp_git_repo):
