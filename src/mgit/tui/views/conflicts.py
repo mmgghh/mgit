@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import os
+import shlex
+import subprocess
+
+from rich.markup import escape
 from rich.syntax import Syntax
 from rich.text import Text
 from textual import work
-from textual.app import ComposeResult
+from textual.app import ComposeResult, SuspendNotSupported
+from textual.binding import Binding
 from textual.containers import VerticalScroll
 from textual.widget import Widget
 from textual.widgets import DataTable, Static, TabbedContent, TabPane
@@ -12,9 +18,15 @@ from ...core import conflicts
 from ...core.merge_rebase import list_conflicts
 from ...git.runner import GitCommandError
 from ..widgets.diff_view import DiffView
+from .run import ConfirmScreen
 
 IDLE_MESSAGE = "No merge, rebase, cherry-pick or revert in progress."
 _MODE_TITLES = {"direct": "1 ↔ 2", "base-ours": "base → 1", "base-theirs": "base → 2"}
+
+
+def _launch_editor(file_path: str) -> None:
+    editor = os.environ.get("VISUAL") or os.environ.get("EDITOR") or "vi"
+    subprocess.run([*shlex.split(editor), file_path])
 
 
 def _side_renderable(path: str | None, content: conflicts.SideContent | None):
@@ -36,8 +48,14 @@ class ConflictsView(Widget):
     ConflictsView #conflicts-panes { height: 1fr; }
     """
     BINDINGS = [
-        ("m", "cycle_mode", "Diff mode"),
-        ("r", "refresh_conflicts", "Refresh"),
+        Binding("1", "take_side('ours')", "Take 1"),
+        Binding("2", "take_side('theirs')", "Take 2"),
+        Binding("e", "edit", "Edit"),
+        Binding("a", "mark_resolved", "Resolved"),
+        Binding("m", "cycle_mode", "Diff mode"),
+        Binding("C", "continue_operation", "Continue"),
+        Binding("A", "abort_operation", "Abort"),
+        Binding("r", "refresh_conflicts", "Refresh"),
     ]
     can_focus = True
 
@@ -150,3 +168,117 @@ class ConflictsView(Widget):
         panes.get_tab("side-diff-pane").label = Text(self._diff_title())
         panes.active = "side-diff-pane"
         self._load_selected()
+
+    def _require_context(self) -> conflicts.ConflictContext | None:
+        if self.context is None:
+            self.app.notify("Nothing in progress", severity="warning")
+        return self.context
+
+    def _require_selected(self) -> str | None:
+        if self._require_context() is None:
+            return None
+        path = self.selected_path
+        if path is None:
+            self.app.notify("No conflicted file selected", severity="warning")
+        return path
+
+    def action_take_side(self, side: str) -> None:
+        path = self._require_selected()
+        if path is None:
+            return
+        label = self.context.ours_label if side == "ours" else self.context.theirs_label
+        self.app.push_screen(
+            ConfirmScreen(f"Replace {escape(path)} with {escape(label)} and mark it resolved?"),
+            lambda confirmed: self._on_take_confirmed(confirmed, path, side),
+        )
+
+    def _on_take_confirmed(self, confirmed: bool | None, path: str, side: str) -> None:
+        if confirmed:
+            self._run_action(conflicts.take_side, path, side)
+
+    def action_mark_resolved(self) -> None:
+        path = self._require_selected()
+        if path is None:
+            return
+        if conflicts.has_conflict_markers(path, self.cwd):
+            self.app.push_screen(
+                ConfirmScreen(f"{escape(path)} still contains conflict markers. Mark it resolved anyway?"),
+                lambda confirmed: self._on_resolve_confirmed(confirmed, path),
+            )
+            return
+        self._run_action(conflicts.mark_resolved, path)
+
+    def _on_resolve_confirmed(self, confirmed: bool | None, path: str) -> None:
+        if confirmed:
+            self._run_action(conflicts.mark_resolved, path)
+
+    def action_edit(self) -> None:
+        path = self._require_selected()
+        if path is None:
+            return
+        try:
+            target = str(conflicts.file_path(path, self.cwd))
+            with self.app.suspend():
+                _launch_editor(target)
+        except SuspendNotSupported:
+            self.app.notify("This terminal can't hand over to an editor", severity="error")
+            return
+        except (GitCommandError, OSError) as exc:
+            self.app.notify(str(exc), severity="error", markup=False)
+            return
+        self.refresh_conflicts()
+
+    def action_continue_operation(self) -> None:
+        if self._require_context() is None:
+            return
+        if self.files:
+            self.app.notify(f"{len(self.files)} file(s) still unresolved", severity="warning")
+            return
+        self._continue()
+
+    @work(thread=True, group="conflicts-action")
+    def _continue(self) -> None:
+        try:
+            conflicts.continue_operation(self.cwd)
+        except GitCommandError as exc:
+            try:
+                remaining = list_conflicts(self.cwd)
+            except GitCommandError:
+                remaining = []
+            if remaining:
+                message = f"Continued, then stopped on new conflicts in {len(remaining)} file(s)"
+                self.app.call_from_thread(self.app.notify, message, severity="warning")
+            else:
+                self.app.call_from_thread(self.app.notify, str(exc), severity="error", markup=False)
+        self.app.call_from_thread(self._after_action)
+
+    def action_abort_operation(self) -> None:
+        context = self._require_context()
+        if context is None:
+            return
+        self.app.push_screen(
+            ConfirmScreen(f"Abort the {context.operation}? Resolutions made so far will be lost."),
+            self._on_abort_confirmed,
+        )
+
+    def _on_abort_confirmed(self, confirmed: bool | None) -> None:
+        if confirmed:
+            self._run_action(conflicts.abort_operation)
+
+    def _run_action(self, fn, *args) -> None:
+        self._action(fn, args)
+
+    @work(thread=True, group="conflicts-action")
+    def _action(self, fn, args: tuple) -> None:
+        try:
+            fn(*args, cwd=self.cwd)
+        except GitCommandError as exc:
+            self.app.call_from_thread(self.app.notify, str(exc), severity="error", markup=False)
+        self.app.call_from_thread(self._after_action)
+
+    def _after_action(self) -> None:
+        # Inside MgitApp, refresh_other_views also refreshes this view.
+        if hasattr(self.app, "refresh_other_views"):
+            self.app.refresh_other_views()
+        else:
+            self.refresh_conflicts()

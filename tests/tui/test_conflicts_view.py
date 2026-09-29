@@ -1,12 +1,18 @@
 import subprocess
+from contextlib import nullcontext
 from pathlib import Path
 
 from rich.syntax import Syntax
 from textual.app import App, ComposeResult
-from textual.widgets import DataTable, Static, TabbedContent
+from textual.content import Content
+from textual.widgets import Button, DataTable, Static, TabbedContent
 
+from mgit.core.merge_rebase import list_conflicts
 from mgit.git import delta
+from mgit.git.repo import in_progress_operation
+from mgit.tui.views import conflicts as conflicts_view
 from mgit.tui.views.conflicts import IDLE_MESSAGE, ConflictsView
+from mgit.tui.views.run import ConfirmScreen
 from mgit.tui.widgets.diff_view import DiffView
 
 
@@ -130,3 +136,157 @@ async def test_selecting_a_row_loads_that_file(merge_conflict_repo, monkeypatch,
         await _settle(app, pilot)
         assert app.query_one(ConflictsView).selected_path == "zzz.txt"
         assert app.query_one("#side-theirs-body", Static).content.code == "feature z\n"
+
+
+async def _press_on_table(app, pilot, *keys):
+    app.query_one("#conflicts-table", DataTable).focus()
+    await pilot.press(*keys)
+    await _settle(app, pilot)
+
+
+async def _confirm(app, pilot):
+    app.screen.query_one("#confirm-yes", Button).press()
+    await _settle(app, pilot)
+
+
+def _confirm_text(app):
+    return Content.from_markup(app.screen.query_one("#confirm-message", Static).content).plain
+
+
+async def test_take_side_two_after_confirming(rebase_conflict_repo):
+    app = _Harness(rebase_conflict_repo)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await _settle(app, pilot)
+        await _press_on_table(app, pilot, "2")
+        assert isinstance(app.screen, ConfirmScreen)
+        assert "Your commit: " in _confirm_text(app)
+        await _confirm(app, pilot)
+        assert Path(rebase_conflict_repo, "file.txt").read_text() == "feature\n"
+        assert _rows(app) == []
+        assert "all conflicts resolved" in _headline(app)
+
+
+async def test_cancelling_take_side_changes_nothing(merge_conflict_repo):
+    app = _Harness(merge_conflict_repo)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await _settle(app, pilot)
+        await _press_on_table(app, pilot, "1")
+        await pilot.press("escape")
+        await _settle(app, pilot)
+        assert list_conflicts(merge_conflict_repo) == [("file.txt", "both modified")]
+
+
+async def test_mark_resolved_confirms_when_markers_remain(merge_conflict_repo):
+    app = _Harness(merge_conflict_repo)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await _settle(app, pilot)
+        await _press_on_table(app, pilot, "a")
+        assert isinstance(app.screen, ConfirmScreen)
+        assert "conflict markers" in _confirm_text(app)
+        await pilot.press("escape")
+        await _settle(app, pilot)
+        Path(merge_conflict_repo, "file.txt").write_text("resolved\n")
+        await _press_on_table(app, pilot, "a")
+        assert not isinstance(app.screen, ConfirmScreen)
+        assert list_conflicts(merge_conflict_repo) == []
+
+
+async def test_edit_opens_editor_then_refreshes(merge_conflict_repo, monkeypatch):
+    opened = []
+
+    def fake_editor(file_path):
+        opened.append(file_path)
+        Path(file_path).write_text("edited\n")
+
+    monkeypatch.setattr(conflicts_view, "_launch_editor", fake_editor)
+    app = _Harness(merge_conflict_repo)
+    async with app.run_test(size=(120, 40)) as pilot:
+        monkeypatch.setattr(app, "suspend", lambda: nullcontext())
+        await _settle(app, pilot)
+        await _press_on_table(app, pilot, "e")
+        assert Path(opened[0]).resolve() == Path(merge_conflict_repo, "file.txt").resolve()
+        await _press_on_table(app, pilot, "a")
+        assert list_conflicts(merge_conflict_repo) == []
+
+
+async def test_continue_refused_while_conflicts_remain(merge_conflict_repo):
+    app = _Harness(merge_conflict_repo)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await _settle(app, pilot)
+        await _press_on_table(app, pilot, "C")
+        assert ("1 file(s) still unresolved", "warning") in app.notices
+        assert in_progress_operation(merge_conflict_repo) == "merge"
+
+
+async def test_continue_finishes_after_resolving(rebase_conflict_repo, monkeypatch):
+    monkeypatch.setenv("GIT_EDITOR", "false")
+    app = _Harness(rebase_conflict_repo)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await _settle(app, pilot)
+        await _press_on_table(app, pilot, "2")
+        await _confirm(app, pilot)
+        await _press_on_table(app, pilot, "C")
+        assert in_progress_operation(rebase_conflict_repo) is None
+        assert _headline(app) == IDLE_MESSAGE
+
+
+async def test_continue_into_next_conflict_warns_and_reloads(tmp_git_repo, git_commit):
+    repo = tmp_git_repo
+    git_commit(repo, "file.txt", "base\n", "add file")
+    subprocess.run(["git", "checkout", "-q", "-b", "feature"], cwd=repo, check=True)
+    git_commit(repo, "file.txt", "feature 1\n", "first")
+    git_commit(repo, "file.txt", "feature 2\n", "second")
+    subprocess.run(["git", "checkout", "-q", "main"], cwd=repo, check=True)
+    git_commit(repo, "file.txt", "main\n", "main change")
+    subprocess.run(["git", "checkout", "-q", "feature"], cwd=repo, check=True)
+    subprocess.run(["git", "rebase", "main"], cwd=repo, capture_output=True)
+    app = _Harness(repo)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await _settle(app, pilot)
+        # Keep main's version so the second commit ("feature 1" -> "feature 2") conflicts too.
+        await _press_on_table(app, pilot, "1")
+        await _confirm(app, pilot)
+        await _press_on_table(app, pilot, "C")
+        assert any(sev == "warning" and "new conflicts" in msg for msg, sev in app.notices)
+        assert "(step 2/2)" in _headline(app)
+        assert _rows(app) == ["file.txt"]
+
+
+async def test_abort_asks_first(rebase_conflict_repo):
+    app = _Harness(rebase_conflict_repo)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await _settle(app, pilot)
+        await _press_on_table(app, pilot, "A")
+        assert isinstance(app.screen, ConfirmScreen)
+        assert "Abort the rebase?" in _confirm_text(app)
+        await _confirm(app, pilot)
+        assert in_progress_operation(rebase_conflict_repo) is None
+        assert _headline(app) == IDLE_MESSAGE
+
+
+async def test_actions_when_idle_just_notify(tmp_git_repo):
+    app = _Harness(tmp_git_repo)
+    async with app.run_test() as pilot:
+        await _settle(app, pilot)
+        await _press_on_table(app, pilot, "1")
+        await _press_on_table(app, pilot, "C")
+        assert not isinstance(app.screen, ConfirmScreen)
+        assert ("Nothing in progress", "warning") in app.notices
+
+
+async def test_confirm_message_shows_brackets_literally(tmp_git_repo, git_commit):
+    repo = tmp_git_repo
+    name = "notes [draft].md"
+    git_commit(repo, name, "base\n", "add notes")
+    subprocess.run(["git", "checkout", "-q", "-b", "feature"], cwd=repo, check=True)
+    git_commit(repo, name, "feature\n", "feature notes")
+    subprocess.run(["git", "checkout", "-q", "main"], cwd=repo, check=True)
+    git_commit(repo, name, "main\n", "main notes")
+    subprocess.run(["git", "merge", "feature"], cwd=repo, capture_output=True)
+    app = _Harness(repo)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await _settle(app, pilot)
+        await _press_on_table(app, pilot, "1")
+        assert "Replace notes [draft].md with Current: main (HEAD)" in _confirm_text(app)
+        await _confirm(app, pilot)
+        assert Path(repo, name).read_text() == "main\n"
