@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import typer
 
+from ..core import conflicts as conflicts_core
 from ..core import merge_rebase as mr
-from .console import console, emit_raw, esc
+from ..git.runner import GitCommandError
+from .console import console, emit_diff, emit_raw, esc
 
 rebase_app = typer.Typer(name="rebase", help="Rebase helpers")
 merge_app = typer.Typer(name="merge", help="Merge helpers")
@@ -115,3 +117,20 @@ def conflicts_ours_cmd(path: str) -> None:
 def conflicts_theirs_cmd(path: str) -> None:
     """Show their version of a conflicted file."""
     emit_raw(mr.conflict_side(path, "theirs"))
+
+
+@conflicts_app.command("show")
+def conflicts_show_cmd(
+    path: str,
+    mode: str = typer.Option("direct", "--mode", help="What to compare: direct, base-ours, or base-theirs"),
+) -> None:
+    """Say which side is which in a conflict, then diff the two sides."""
+    context = conflicts_core.conflict_context()
+    if context is None:
+        raise GitCommandError(["status"], 1, conflicts_core.NOTHING_IN_PROGRESS)
+    diff_text = conflicts_core.side_diff(path, mode)
+    console.print(f"[bold]{esc(context.headline)}[/bold]")
+    console.print(f"  ours   = {esc(context.ours_label)}")
+    console.print(f"  theirs = {esc(context.theirs_label)}")
+    console.print()
+    emit_diff(diff_text)
