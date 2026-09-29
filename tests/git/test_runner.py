@@ -1,5 +1,9 @@
+import subprocess
+from pathlib import Path
+
 import pytest
-from mgit.git.runner import run, GitCommandError
+
+from mgit.git.runner import GitCommandError, run, run_bytes
 
 
 def test_run_returns_stdout(tmp_git_repo):
@@ -18,11 +22,6 @@ def test_run_no_check_does_not_raise(tmp_git_repo):
     out = run(["not-a-real-command"], cwd=tmp_git_repo, check=False)
     assert out == ""
 
-
-import subprocess
-from pathlib import Path
-
-from mgit.git.runner import run_bytes
 
 
 def _commit_bytes(repo, name, data):
