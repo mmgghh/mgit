@@ -4,7 +4,7 @@ import typer
 
 from .. import config as cfg
 from ..core.log_search import LogFilter, diff as diff_core, search
-from .console import console, emit_raw, esc
+from .console import console, emit_diff, esc
 
 
 def log_cmd(
@@ -40,4 +40,4 @@ def diff_cmd(
     staged: bool = typer.Option(False, "--staged"),
 ) -> None:
     """Show a diff between refs, or the working tree/staged changes."""
-    emit_raw(diff_core(staged=staged, ref_a=ref_a, ref_b=ref_b))
+    emit_diff(diff_core(staged=staged, ref_a=ref_a, ref_b=ref_b))
