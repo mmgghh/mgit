@@ -14,8 +14,8 @@ _CONFLICT_LABELS = {
 _STAGE = {"base": "1", "ours": "2", "theirs": "3"}
 
 
-def rebase_continue(cwd: str | None = None) -> str:
-    return run(["rebase", "--continue"], cwd=cwd)
+def rebase_continue(cwd: str | None = None, env: dict[str, str] | None = None) -> str:
+    return run(["rebase", "--continue"], cwd=cwd, env=env)
 
 
 def rebase_abort(cwd: str | None = None) -> str:
@@ -26,16 +26,16 @@ def rebase_skip(cwd: str | None = None) -> str:
     return run(["rebase", "--skip"], cwd=cwd)
 
 
-def merge_continue(cwd: str | None = None) -> str:
-    return run(["commit", "--no-edit"], cwd=cwd)
+def merge_continue(cwd: str | None = None, env: dict[str, str] | None = None) -> str:
+    return run(["commit", "--no-edit"], cwd=cwd, env=env)
 
 
 def merge_abort(cwd: str | None = None) -> str:
     return run(["merge", "--abort"], cwd=cwd)
 
 
-def cherry_pick_continue(cwd: str | None = None) -> str:
-    return run(["cherry-pick", "--continue"], cwd=cwd)
+def cherry_pick_continue(cwd: str | None = None, env: dict[str, str] | None = None) -> str:
+    return run(["cherry-pick", "--continue"], cwd=cwd, env=env)
 
 
 def cherry_pick_abort(cwd: str | None = None) -> str:
@@ -46,8 +46,8 @@ def cherry_pick_skip(cwd: str | None = None) -> str:
     return run(["cherry-pick", "--skip"], cwd=cwd)
 
 
-def revert_continue(cwd: str | None = None) -> str:
-    return run(["revert", "--continue"], cwd=cwd)
+def revert_continue(cwd: str | None = None, env: dict[str, str] | None = None) -> str:
+    return run(["revert", "--continue"], cwd=cwd, env=env)
 
 
 def revert_abort(cwd: str | None = None) -> str:

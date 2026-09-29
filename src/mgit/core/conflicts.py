@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import posixpath
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from ..git.repo import current_branch, git_dir, in_progress_operation, repo_root
 from ..git.runner import GitCommandError, run, run_bytes
+from . import merge_rebase as mr
 
 NOTHING_IN_PROGRESS = "No merge, rebase, cherry-pick or revert in progress"
 DIFF_MODES = ("direct", "base-ours", "base-theirs")
@@ -185,3 +187,64 @@ def side_content(path: str, side: str, cwd: str | None = None) -> SideContent:
     if b"\0" in data[:8000]:  # git's own binary heuristic
         return SideContent("", binary=True)
     return SideContent(data.decode("utf-8", errors="replace"))
+
+
+# Continue in a captured subprocess must never launch an editor; git keeps the original message.
+_NO_EDITOR = {"GIT_EDITOR": "true"}
+_CONTINUE = {
+    "rebase": mr.rebase_continue,
+    "merge": mr.merge_continue,
+    "cherry-pick": mr.cherry_pick_continue,
+    "revert": mr.revert_continue,
+}
+_ABORT = {
+    "rebase": mr.rebase_abort,
+    "merge": mr.merge_abort,
+    "cherry-pick": mr.cherry_pick_abort,
+    "revert": mr.revert_abort,
+}
+_MARKER = re.compile(rb"^(?:<{7}|>{7})(?: |$)", re.MULTILINE)
+
+
+def take_side(path: str, side: str, cwd: str | None = None) -> None:
+    stage = _side_stage(side)
+    root, rel = _locate(path, cwd)
+    if stage in _stages(rel, root):
+        run(["checkout", f"--{side}", "--", _literal(rel)], cwd=root)
+        run(["add", "--", _literal(rel)], cwd=root)
+    else:
+        # That side deleted the file: taking it means deleting it.
+        run(["rm", "--quiet", "--", _literal(rel)], cwd=root)
+
+
+def mark_resolved(path: str, cwd: str | None = None) -> None:
+    root, rel = _locate(path, cwd)
+    run(["add", "-A", "--", _literal(rel)], cwd=root)
+
+
+def file_path(path: str, cwd: str | None = None) -> Path:
+    root, rel = _locate(path, cwd)
+    return Path(root) / rel
+
+
+def has_conflict_markers(path: str, cwd: str | None = None) -> bool:
+    try:
+        data = file_path(path, cwd).read_bytes()
+    except OSError:
+        return False
+    return _MARKER.search(data) is not None
+
+
+def _require_operation(cwd: str | None) -> str:
+    operation = in_progress_operation(cwd)
+    if operation is None:
+        raise GitCommandError(["status"], 1, NOTHING_IN_PROGRESS)
+    return operation
+
+
+def continue_operation(cwd: str | None = None) -> str:
+    return _CONTINUE[_require_operation(cwd)](cwd, env=_NO_EDITOR)
+
+
+def abort_operation(cwd: str | None = None) -> str:
+    return _ABORT[_require_operation(cwd)](cwd)

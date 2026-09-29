@@ -5,6 +5,7 @@ import pytest
 
 from mgit.core import conflicts
 from mgit.core.merge_rebase import list_conflicts
+from mgit.git.repo import in_progress_operation
 from mgit.git.runner import GitCommandError
 
 
@@ -131,3 +132,113 @@ def test_paths_with_spaces_and_brackets(tmp_git_repo, git_commit):
     assert [p for p, _ in list_conflicts(repo)] == [name]
     assert conflicts.side_content(name, "theirs", repo).text == "feature\n"
     assert "+feature" in conflicts.side_diff(name, "direct", repo)
+
+
+def _status(repo):
+    return subprocess.run(["git", "status", "--porcelain"], cwd=repo, capture_output=True, text=True).stdout
+
+
+def test_take_side_ours_and_theirs(merge_conflict_repo):
+    conflicts.take_side("file.txt", "theirs", merge_conflict_repo)
+    assert Path(merge_conflict_repo, "file.txt").read_text() == "feature\n"
+    assert list_conflicts(merge_conflict_repo) == []
+
+
+def test_take_side_in_rebase_takes_your_commit(rebase_conflict_repo):
+    conflicts.take_side("file.txt", "theirs", rebase_conflict_repo)
+    assert Path(rebase_conflict_repo, "file.txt").read_text() == "feature\n"
+    assert list_conflicts(rebase_conflict_repo) == []
+
+
+def test_take_side_ours_keeps_current(merge_conflict_repo):
+    conflicts.take_side("file.txt", "ours", merge_conflict_repo)
+    assert Path(merge_conflict_repo, "file.txt").read_text() == "main\n"
+    assert list_conflicts(merge_conflict_repo) == []
+
+
+def test_take_deleted_side_removes_file(delete_conflict_repo):
+    conflicts.take_side("file.txt", "ours", delete_conflict_repo)
+    assert not Path(delete_conflict_repo, "file.txt").exists()
+    assert list_conflicts(delete_conflict_repo) == []
+    assert "file.txt" not in _status(delete_conflict_repo)  # main already deleted it: matches HEAD
+
+
+def test_take_side_from_subdirectory(merge_conflict_repo):
+    sub = Path(merge_conflict_repo, "sub")
+    sub.mkdir()
+    [(path, _label)] = list_conflicts(str(sub))
+    assert path == "../file.txt"
+    conflicts.take_side(path, "theirs", str(sub))
+    assert Path(merge_conflict_repo, "file.txt").read_text() == "feature\n"
+
+
+def test_mark_resolved_stages_the_file(merge_conflict_repo):
+    Path(merge_conflict_repo, "file.txt").write_text("resolved\n")
+    conflicts.mark_resolved("file.txt", merge_conflict_repo)
+    assert list_conflicts(merge_conflict_repo) == []
+
+
+def test_mark_resolved_records_a_deleted_file(merge_conflict_repo):
+    Path(merge_conflict_repo, "file.txt").unlink()
+    conflicts.mark_resolved("file.txt", merge_conflict_repo)
+    assert list_conflicts(merge_conflict_repo) == []
+
+
+def test_has_conflict_markers(merge_conflict_repo):
+    assert conflicts.has_conflict_markers("file.txt", merge_conflict_repo)
+    Path(merge_conflict_repo, "file.txt").write_text("title\n=======\n")
+    assert not conflicts.has_conflict_markers("file.txt", merge_conflict_repo)
+    Path(merge_conflict_repo, "file.txt").write_text("x\n>>>>>>> feature\n")
+    assert conflicts.has_conflict_markers("file.txt", merge_conflict_repo)
+
+
+def test_file_path_is_absolute_working_tree_path(merge_conflict_repo):
+    sub = Path(merge_conflict_repo, "sub")
+    sub.mkdir()
+    assert conflicts.file_path("../file.txt", str(sub)).resolve() == Path(merge_conflict_repo, "file.txt").resolve()
+
+
+def test_continue_operation_finishes_rebase_without_an_editor(rebase_conflict_repo, monkeypatch):
+    monkeypatch.setenv("GIT_EDITOR", "false")  # would fail the commit if git opened an editor
+    conflicts.take_side("file.txt", "theirs", rebase_conflict_repo)
+    conflicts.continue_operation(rebase_conflict_repo)
+    assert in_progress_operation(rebase_conflict_repo) is None
+    subject = subprocess.run(["git", "log", "-1", "--format=%s"], cwd=rebase_conflict_repo,
+                             capture_output=True, text=True).stdout.strip()
+    assert subject == "add login"
+
+
+def test_continue_operation_finishes_merge(merge_conflict_repo):
+    conflicts.take_side("file.txt", "ours", merge_conflict_repo)
+    conflicts.continue_operation(merge_conflict_repo)
+    assert in_progress_operation(merge_conflict_repo) is None
+
+
+def test_continue_into_next_conflict_raises_and_leaves_conflicts(tmp_git_repo, git_commit):
+    repo = tmp_git_repo
+    git_commit(repo, "file.txt", "base\n", "add file")
+    subprocess.run(["git", "checkout", "-q", "-b", "feature"], cwd=repo, check=True)
+    git_commit(repo, "file.txt", "feature 1\n", "first")
+    git_commit(repo, "file.txt", "feature 2\n", "second")
+    subprocess.run(["git", "checkout", "-q", "main"], cwd=repo, check=True)
+    git_commit(repo, "file.txt", "main\n", "main change")
+    subprocess.run(["git", "checkout", "-q", "feature"], cwd=repo, check=True)
+    subprocess.run(["git", "rebase", "main"], cwd=repo, capture_output=True)
+    Path(repo, "file.txt").write_text("merged 1\n")
+    conflicts.mark_resolved("file.txt", repo)
+    with pytest.raises(GitCommandError):
+        conflicts.continue_operation(repo)
+    assert list_conflicts(repo) == [("file.txt", "both modified")]
+    assert conflicts.conflict_context(repo).step == (2, 2)
+
+
+def test_continue_and_abort_require_an_operation(tmp_git_repo):
+    with pytest.raises(GitCommandError, match="No merge, rebase"):
+        conflicts.continue_operation(tmp_git_repo)
+    with pytest.raises(GitCommandError, match="No merge, rebase"):
+        conflicts.abort_operation(tmp_git_repo)
+
+
+def test_abort_operation_clears_rebase(rebase_conflict_repo):
+    conflicts.abort_operation(rebase_conflict_repo)
+    assert in_progress_operation(rebase_conflict_repo) is None
