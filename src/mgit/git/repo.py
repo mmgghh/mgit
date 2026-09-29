@@ -32,18 +32,19 @@ def require_branch(cwd: str | None = None) -> str:
     return branch
 
 
+def git_dir(cwd: str | None = None) -> Path:
+    return Path(run(["rev-parse", "--absolute-git-dir"], cwd=cwd))
+
+
 def in_progress_operation(cwd: str | None = None) -> str | None:
-    root = Path(repo_root(cwd))
-    git_dir = Path(run(["rev-parse", "--git-dir"], cwd=cwd))
-    if not git_dir.is_absolute():
-        git_dir = root / git_dir
-    if (git_dir / "CHERRY_PICK_HEAD").exists():
+    gd = git_dir(cwd)
+    if (gd / "CHERRY_PICK_HEAD").exists():
         return "cherry-pick"
-    if (git_dir / "REVERT_HEAD").exists():
+    if (gd / "REVERT_HEAD").exists():
         return "revert"
-    if (git_dir / "MERGE_HEAD").exists():
+    if (gd / "MERGE_HEAD").exists():
         return "merge"
-    if (git_dir / "rebase-merge").exists() or (git_dir / "rebase-apply").exists():
+    if (gd / "rebase-merge").exists() or (gd / "rebase-apply").exists():
         return "rebase"
     return None
 

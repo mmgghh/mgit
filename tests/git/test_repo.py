@@ -39,3 +39,12 @@ def test_default_remote(tmp_git_remote):
 
 def test_infer_base_branch_main(tmp_git_repo):
     assert repo.infer_base_branch(tmp_git_repo) == "main"
+
+
+def test_git_dir_is_absolute_from_subdirectory(tmp_git_repo):
+    from pathlib import Path
+    from mgit.git.repo import git_dir
+
+    sub = Path(tmp_git_repo, "sub")
+    sub.mkdir()
+    assert git_dir(str(sub)).resolve() == (Path(tmp_git_repo) / ".git").resolve()
