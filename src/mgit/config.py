@@ -8,7 +8,10 @@ from .git.repo import is_git_repo, repo_root
 
 DEFAULTS: dict[str, Any] = {
     "log": {"limit": 30},
+    "diff": {"side_by_side": True},
 }
+
+_FALSE_STRINGS = {"", "false", "0", "no", "off"}
 
 
 def _global_config_path() -> Path:
@@ -53,6 +56,14 @@ def get(dotted_key: str, cwd: str | None = None) -> Any:
             return None
         node = node[part]
     return node
+
+
+def get_bool(dotted_key: str, cwd: str | None = None) -> bool:
+    value = get(dotted_key, cwd)
+    if isinstance(value, str):
+        # `mgit config set` always writes strings.
+        return value.strip().lower() not in _FALSE_STRINGS
+    return bool(value)
 
 
 def set_value(dotted_key: str, value: str, cwd: str | None = None, global_: bool = False) -> None:
