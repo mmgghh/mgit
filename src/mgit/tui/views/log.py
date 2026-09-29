@@ -3,13 +3,14 @@ from __future__ import annotations
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Horizontal
 from textual.screen import ModalScreen
 from textual.widget import Widget
-from textual.widgets import DataTable, Input, Static
+from textual.widgets import DataTable, Input
 
 from ...core.log_search import Commit, LogFilter, diff, search
 from ...git.runner import GitCommandError
+from ..widgets.diff_view import DiffView
 
 _EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
@@ -17,13 +18,13 @@ _EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 class DiffScreen(ModalScreen[None]):
     BINDINGS = [("escape", "dismiss_screen", "Close")]
 
-    def __init__(self, text: str) -> None:
+    def __init__(self, text: str, cwd: str | None = None) -> None:
         super().__init__()
         self._text = text
+        self._cwd = cwd
 
     def compose(self) -> ComposeResult:
-        with VerticalScroll():
-            yield Static(Text(self._text))
+        yield DiffView(self._text, cwd=self._cwd)
 
     def action_dismiss_screen(self) -> None:
         self.dismiss()
@@ -110,4 +111,4 @@ class LogView(Widget):
             except GitCommandError as exc:
                 self.app.call_from_thread(self.app.notify, str(exc), severity="error", markup=False)
                 return
-        self.app.call_from_thread(self.app.push_screen, DiffScreen(text))
+        self.app.call_from_thread(self.app.push_screen, DiffScreen(text, self.cwd))

@@ -81,3 +81,20 @@ async def test_d_key_on_root_commit_shows_diff(tmp_git_repo):
         assert len(app.screen_stack) == 2
         modal_static = app.screen.query_one(Static)
         assert "README.md" in modal_static.content.plain
+
+
+async def test_d_key_diff_screen_uses_diff_view(tmp_git_repo, monkeypatch):
+    from mgit.git import delta
+    from mgit.tui.widgets.diff_view import DiffView
+
+    monkeypatch.setattr(delta, "render", lambda *a, **k: None)
+    _commit(tmp_git_repo, "a.txt", "a\n", "add a")
+    app = _Harness(tmp_git_repo)
+    async with app.run_test() as pilot:
+        await app.workers.wait_for_complete()
+        app.query_one("#log-table", DataTable).focus()
+        await pilot.press("d")
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+        view = app.screen.query_one(DiffView)
+        assert "a.txt" in view.text
