@@ -37,6 +37,20 @@ Global config: `~/.config/mgit/config.toml`. Per-repo override: `.mgit.toml`
 at the repo root. Read a value with `mgit config get <key>`, write one with
 `mgit config set <key> <value>` (add `--global` to write to the global file).
 
+## Diffs and conflicts
+
+If [delta](https://github.com/dandavison/delta) is installed, `mgit diff`
+(on a terminal) and every diff in the TUI are shown through it in
+side-by-side layout; otherwise you get plain `git diff` output. Set
+`mgit config set diff.side_by_side false` for delta's unified layout (with
+delta's default styling, since this bypasses your gitconfig `[delta]`
+settings).
+
+During a merge, rebase, cherry-pick or revert, `mgit conflicts show <path>`
+says which side is which — during a rebase git's "ours" is the upstream you
+are rebasing onto and "theirs" is your own commit — then diffs the two sides
+(`--mode base-ours` / `--mode base-theirs` show what each side changed).
+
 ## TUI
 
 An interactive Textual-based TUI is available as an optional extra:
@@ -44,8 +58,11 @@ An interactive Textual-based TUI is available as an optional extra:
     pip install mgit[tui]
     mgit tui
 
-It has four tabs: Run (browse, fill in, and execute any mgit command,
+It has five tabs: Run (browse, fill in, and execute any mgit command,
 including stash, git-flow, merge/rebase, and other mutating operations),
-Status (`r` to refresh), Branches (list/switch, `Enter` to switch), and Log
-(a commit browser with author/since/until/grep filters, `d` on a commit to
-view its diff).
+Status (`r` to refresh), Conflicts (each conflicted file's two sides, named
+by what they are, plus their diff; `1`/`2` take a side, `e` edits, `a` marks
+resolved, `m` cycles the diff, `C`/`A` continue/abort — the TUI opens here
+when a conflict is in progress), Branches (list/switch, `Enter` to switch),
+and Log (a commit browser with author/since/until/grep filters, `d` on a
+commit to view its diff). Press `F1` for all keys.
