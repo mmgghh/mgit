@@ -54,13 +54,15 @@ class MgitApp(App):
     def __init__(self, cwd: str | None = None) -> None:
         super().__init__()
         self.cwd = cwd
+        self._start_tab: str | None = None
 
     def compose(self) -> ComposeResult:
         yield Header()
         if not is_git_repo(self.cwd):
             yield Static("Not a git repository.", id="not-a-repo")
         else:
-            with TabbedContent(initial=self._initial_tab()):
+            self._start_tab = self._initial_tab()
+            with TabbedContent(initial=self._start_tab):
                 with TabPane("Run", id="run-tab"):
                     yield RunView(self.cwd)
                 with TabPane("Status", id="status-tab"):
@@ -72,6 +74,12 @@ class MgitApp(App):
                 with TabPane("Log", id="log-tab"):
                     yield LogView(self.cwd)
         yield Footer()
+
+    def on_mount(self) -> None:
+        # Opening on Conflicts means there's work to do: focus the file list
+        # so its keys (1/2/e/a/m/C/A) work without tabbing in first.
+        if self._start_tab == "conflicts-tab":
+            self.query_one("#conflicts-table").focus()
 
     def _initial_tab(self) -> str:
         try:

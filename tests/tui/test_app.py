@@ -136,3 +136,15 @@ def test_help_mentions_conflict_keys():
 
     assert "Conflicts" in HELP_TEXT
     assert "take side 1 / side 2" in HELP_TEXT
+
+
+async def test_conflict_keys_work_right_away_when_opening_on_conflicts(rebase_conflict_repo):
+    from mgit.tui.views.conflicts import ConflictsView
+
+    app = MgitApp(rebase_conflict_repo)
+    async with app.run_test() as pilot:
+        for _ in range(3):
+            await pilot.pause()
+            await app.workers.wait_for_complete()
+        await pilot.press("m")
+        assert app.query_one(ConflictsView).mode == "base-ours"
