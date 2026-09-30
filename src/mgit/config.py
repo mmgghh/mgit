@@ -66,6 +66,14 @@ def get_bool(dotted_key: str, cwd: str | None = None) -> bool:
     return bool(value)
 
 
+def diff_side_by_side(cwd: str | None = None) -> bool:
+    """diff.side_by_side; an unreadable config file means the default (on) rather than a crash mid-diff."""
+    try:
+        return get_bool("diff.side_by_side", cwd)
+    except (tomllib.TOMLDecodeError, OSError):
+        return True
+
+
 def set_value(dotted_key: str, value: str, cwd: str | None = None, global_: bool = False) -> None:
     path = _global_config_path() if global_ else (_repo_config_path(cwd) or _global_config_path())
     path.parent.mkdir(parents=True, exist_ok=True)

@@ -26,6 +26,6 @@ def emit_diff(text: str, cwd: str | None = None) -> None:
     """Show a diff through delta when writing to a terminal; plain text otherwise."""
     if _is_terminal():
         sys.stdout.flush()
-        if delta.page(text, side_by_side=cfg.get_bool("diff.side_by_side", cwd), cwd=cwd):
+        if delta.page(text, side_by_side=cfg.diff_side_by_side(cwd), cwd=cwd):
             return
     emit_raw(text)

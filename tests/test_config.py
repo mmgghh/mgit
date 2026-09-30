@@ -31,3 +31,11 @@ def test_get_bool_parses_strings_written_by_config_set(tmp_git_repo, monkeypatch
     for raw, expected in [("false", False), ("No", False), ("0", False), ("off", False), ("true", True), ("yes", True)]:
         config.set_value("diff.side_by_side", raw, cwd=tmp_git_repo)
         assert config.get_bool("diff.side_by_side", tmp_git_repo) is expected, raw
+
+
+def test_diff_side_by_side_survives_a_malformed_config(tmp_git_repo, monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    (home / ".config" / "mgit").mkdir(parents=True)
+    (home / ".config" / "mgit" / "config.toml").write_text("[diff\nside_by_side = \n")
+    assert config.diff_side_by_side(tmp_git_repo) is True

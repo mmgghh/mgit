@@ -56,3 +56,14 @@ def test_piped_mgit_diff_stays_plain(monkeypatch, tmp_git_repo):
     assert calls == []
     assert "+changed" in result.stdout
     assert "\x1b[" not in result.stdout
+
+
+def test_emit_diff_survives_a_malformed_config(monkeypatch, tmp_git_repo, tmp_path):
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    (home / ".config" / "mgit").mkdir(parents=True)
+    (home / ".config" / "mgit" / "config.toml").write_text("[diff\n")
+    monkeypatch.setattr(console_mod, "_is_terminal", lambda: True)
+    calls = _record_page(monkeypatch)
+    console_mod.emit_diff("some diff", cwd=tmp_git_repo)
+    assert calls == [("some diff", True)]

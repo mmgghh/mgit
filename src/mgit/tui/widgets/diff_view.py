@@ -55,7 +55,7 @@ class DiffView(VerticalScroll):
 
     @work(thread=True, group="diff-render")
     def _render_diff(self, text: str, width: int, generation: int) -> None:
-        side_by_side = config.get_bool("diff.side_by_side", self.cwd)
+        side_by_side = config.diff_side_by_side(self.cwd)
         rendered = delta.render(text, width, side_by_side=side_by_side, cwd=self.cwd)
         self.app.call_from_thread(self._apply, rendered, generation)
 

@@ -101,3 +101,16 @@ async def test_empty_diff_shows_placeholder(monkeypatch, tmp_git_repo, tmp_path)
     async with app.run_test() as pilot:
         await _settle(app, pilot)
         assert _body(app) == "(no differences)"
+
+
+async def test_malformed_config_does_not_crash_rendering(monkeypatch, tmp_git_repo, tmp_path):
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    (home / ".config" / "mgit").mkdir(parents=True)
+    (home / ".config" / "mgit" / "config.toml").write_text("[diff\n")
+    calls = _fake_render(monkeypatch)
+    app = _Harness(SAMPLE, tmp_git_repo)
+    async with app.run_test() as pilot:
+        await _settle(app, pilot)
+        assert _body(app) == "RENDERED"
+        assert calls[-1]["side_by_side"] is True
