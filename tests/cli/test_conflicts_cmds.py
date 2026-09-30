@@ -40,3 +40,11 @@ def test_show_errors_when_idle(tmp_git_repo, monkeypatch):
 
 def test_show_is_discoverable_in_run_tab():
     assert ("conflicts", "show") in {tuple(e.path) for e in discover_commands(app)}
+
+
+def test_show_says_when_the_path_is_not_conflicted(merge_conflict_repo, monkeypatch):
+    monkeypatch.chdir(merge_conflict_repo)
+    result = runner.invoke(app, ["conflicts", "show", "README.md"])
+    assert isinstance(result.exception, GitCommandError)
+    assert "README.md has no conflict" in str(result.exception)
+    assert "Merging" not in result.stdout

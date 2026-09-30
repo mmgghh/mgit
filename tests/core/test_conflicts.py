@@ -253,3 +253,9 @@ def test_rebase_context_tolerates_non_utf8_branch_name(rebase_conflict_repo):
     Path(rebase_conflict_repo, ".git", "rebase-merge", "head-name").write_bytes(b"refs/heads/caf\xe9\n")
     ctx = conflicts.conflict_context(rebase_conflict_repo)
     assert ctx.headline.startswith("Rebasing caf� onto main")
+
+
+def test_is_conflicted(merge_conflict_repo):
+    assert conflicts.is_conflicted("file.txt", merge_conflict_repo)
+    assert not conflicts.is_conflicted("README.md", merge_conflict_repo)
+    assert not conflicts.is_conflicted("no-such-file.txt", merge_conflict_repo)

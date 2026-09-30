@@ -162,6 +162,11 @@ def _side_stage(side: str) -> str:
     return _SIDE_STAGES[side]
 
 
+def is_conflicted(path: str, cwd: str | None = None) -> bool:
+    root, rel = _locate(path, cwd)
+    return bool(_stages(rel, root))
+
+
 def side_diff(path: str, mode: str, cwd: str | None = None) -> str:
     if mode not in _MODE_STAGES:
         raise GitCommandError(["diff"], 1, f"invalid mode '{mode}', expected one of: {', '.join(DIFF_MODES)}")

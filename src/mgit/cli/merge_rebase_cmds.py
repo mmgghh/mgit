@@ -128,6 +128,8 @@ def conflicts_show_cmd(
     context = conflicts_core.conflict_context()
     if context is None:
         raise GitCommandError(["status"], 1, conflicts_core.NOTHING_IN_PROGRESS)
+    if not conflicts_core.is_conflicted(path):
+        raise GitCommandError(["status"], 1, f"{path} has no conflict")
     diff_text = conflicts_core.side_diff(path, mode)
     console.print(f"[bold]{esc(context.headline)}[/bold]")
     console.print(f"  ours   = {esc(context.ours_label)}")
