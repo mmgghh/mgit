@@ -242,3 +242,14 @@ def test_continue_and_abort_require_an_operation(tmp_git_repo):
 def test_abort_operation_clears_rebase(rebase_conflict_repo):
     conflicts.abort_operation(rebase_conflict_repo)
     assert in_progress_operation(rebase_conflict_repo) is None
+
+
+def test_has_conflict_markers_finds_label_less_markers_in_crlf_files(merge_conflict_repo):
+    Path(merge_conflict_repo, "file.txt").write_bytes(b"<<<<<<<\r\nmain\r\n=======\r\nfeature\r\n>>>>>>>\r\n")
+    assert conflicts.has_conflict_markers("file.txt", merge_conflict_repo)
+
+
+def test_rebase_context_tolerates_non_utf8_branch_name(rebase_conflict_repo):
+    Path(rebase_conflict_repo, ".git", "rebase-merge", "head-name").write_bytes(b"refs/heads/caf\xe9\n")
+    ctx = conflicts.conflict_context(rebase_conflict_repo)
+    assert ctx.headline.startswith("Rebasing caf� onto main")

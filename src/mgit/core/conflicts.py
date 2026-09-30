@@ -83,7 +83,7 @@ def _rebase_context(gd: Path, cwd: str | None) -> ConflictContext:
 
 def _read(path: Path) -> str | None:
     try:
-        return path.read_text().strip() or None
+        return path.read_text(encoding="utf-8", errors="replace").strip() or None
     except OSError:
         return None
 
@@ -203,7 +203,7 @@ _ABORT = {
     "cherry-pick": mr.cherry_pick_abort,
     "revert": mr.revert_abort,
 }
-_MARKER = re.compile(rb"^(?:<{7}|>{7})(?: |$)", re.MULTILINE)
+_MARKER = re.compile(rb"^(?:<{7}|>{7})(?: |\r?$)", re.MULTILINE)
 
 
 def take_side(path: str, side: str, cwd: str | None = None) -> None:
