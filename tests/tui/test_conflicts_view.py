@@ -7,6 +7,7 @@ from textual.app import App, ComposeResult
 from textual.content import Content
 from textual.widgets import Button, DataTable, Static, TabbedContent
 
+from mgit.core import conflicts as conflicts_core
 from mgit.core.merge_rebase import list_conflicts
 from mgit.git import delta
 from mgit.git.repo import in_progress_operation
@@ -310,3 +311,32 @@ async def test_git_am_conflict_is_labeled_and_abort_names_it(tmp_git_repo, git_c
         assert "Abort the git am?" in _confirm_text(app)
         await _confirm(app, pilot)
         assert in_progress_operation(repo) is None
+
+
+async def test_each_refresh_or_move_loads_the_selected_file_once(merge_conflict_repo, git_commit, monkeypatch):
+    repo = merge_conflict_repo
+    subprocess.run(["git", "merge", "--abort"], cwd=repo, check=True)
+    subprocess.run(["git", "checkout", "-q", "feature"], cwd=repo, check=True)
+    git_commit(repo, "zzz.txt", "feature z\n", "feature z")
+    subprocess.run(["git", "checkout", "-q", "main"], cwd=repo, check=True)
+    git_commit(repo, "zzz.txt", "main z\n", "main z")
+    subprocess.run(["git", "merge", "feature"], cwd=repo, capture_output=True)
+    loads = []
+    real_side_diff = conflicts_core.side_diff
+
+    def counting_side_diff(path, mode, cwd=None):
+        loads.append(path)
+        return real_side_diff(path, mode, cwd)
+
+    monkeypatch.setattr(conflicts_core, "side_diff", counting_side_diff)
+    app = _Harness(repo)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await _settle(app, pilot)
+        assert loads == ["file.txt"]
+        loads.clear()
+        app.query_one(ConflictsView).refresh_conflicts()
+        await _settle(app, pilot)
+        assert loads == ["file.txt"]
+        loads.clear()
+        await _press_on_table(app, pilot, "down")
+        assert loads == ["zzz.txt"]

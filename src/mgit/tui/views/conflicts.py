@@ -67,6 +67,8 @@ class ConflictsView(Widget):
         self.files: list[tuple[str, str]] = []
         self.mode = "direct"
         self._load_generation = 0
+        self._loaded_key: tuple[str | None, str] | None = None
+        self._stale = True
 
     def compose(self) -> ComposeResult:
         yield Static(IDLE_MESSAGE, id="conflicts-headline")
@@ -126,6 +128,7 @@ class ConflictsView(Widget):
         paths = [path for path, _ in files]
         if previous in paths:
             table.move_cursor(row=paths.index(previous))
+        self._stale = True
         self._load_selected()
 
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
@@ -133,8 +136,14 @@ class ConflictsView(Widget):
             self._load_selected()
 
     def _load_selected(self) -> None:
+        key = (self.selected_path, self.mode)
+        # Re-filling the table after a refresh also fires RowHighlighted for the
+        # row just loaded; only load again if the selection or data changed.
+        if key == self._loaded_key and not self._stale:
+            return
+        self._loaded_key, self._stale = key, False
         self._load_generation += 1
-        path = self.selected_path
+        path = key[0]
         if path is None:
             self._show_file(self._load_generation, None, None, None, "")
             return
