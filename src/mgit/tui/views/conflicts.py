@@ -20,8 +20,9 @@ from ...git.runner import GitCommandError
 from ..widgets.diff_view import DiffView
 from .run import ConfirmScreen
 
-IDLE_MESSAGE = "No merge, rebase, cherry-pick or revert in progress."
+IDLE_MESSAGE = "No merge, rebase, cherry-pick, revert or git am in progress."
 _MODE_TITLES = {"direct": "1 ↔ 2", "base-ours": "base → 1", "base-theirs": "base → 2"}
+_OPERATION_NAMES = {"am": "git am"}
 
 
 def _launch_editor(file_path: str) -> None:
@@ -257,7 +258,8 @@ class ConflictsView(Widget):
         if context is None:
             return
         self.app.push_screen(
-            ConfirmScreen(f"Abort the {context.operation}? Resolutions made so far will be lost."),
+            ConfirmScreen(f"Abort the {_OPERATION_NAMES.get(context.operation, context.operation)}? "
+                          "Resolutions made so far will be lost."),
             self._on_abort_confirmed,
         )
 

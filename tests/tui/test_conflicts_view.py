@@ -290,3 +290,23 @@ async def test_confirm_message_shows_brackets_literally(tmp_git_repo, git_commit
         assert "Replace notes [draft].md with Current: main (HEAD)" in _confirm_text(app)
         await _confirm(app, pilot)
         assert Path(repo, name).read_text() == "main\n"
+
+
+async def test_git_am_conflict_is_labeled_and_abort_names_it(tmp_git_repo, git_commit, tmp_path):
+    repo = tmp_git_repo
+    git_commit(repo, "file.txt", "base\n", "add file")
+    subprocess.run(["git", "checkout", "-q", "-b", "feature"], cwd=repo, check=True)
+    git_commit(repo, "file.txt", "feature\n", "feature change")
+    subprocess.run(["git", "format-patch", "-q", "-1", "-o", str(tmp_path / "p")], cwd=repo, check=True)
+    subprocess.run(["git", "checkout", "-q", "main"], cwd=repo, check=True)
+    git_commit(repo, "file.txt", "main\n", "main change")
+    subprocess.run(["git", "am", "-3", *map(str, (tmp_path / "p").iterdir())], cwd=repo, capture_output=True)
+    app = _Harness(repo)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await _settle(app, pilot)
+        assert 'Applying patch "feature change" onto main' in _headline(app)
+        assert _tab_label(app, "side-theirs-pane") == '2 · Patch: "feature change"'
+        await _press_on_table(app, pilot, "A")
+        assert "Abort the git am?" in _confirm_text(app)
+        await _confirm(app, pilot)
+        assert in_progress_operation(repo) is None

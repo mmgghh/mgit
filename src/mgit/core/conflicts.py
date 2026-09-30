@@ -9,7 +9,7 @@ from ..git.repo import current_branch, git_dir, in_progress_operation, repo_root
 from ..git.runner import GitCommandError, run, run_bytes
 from . import merge_rebase as mr
 
-NOTHING_IN_PROGRESS = "No merge, rebase, cherry-pick or revert in progress"
+NOTHING_IN_PROGRESS = "No merge, rebase, cherry-pick, revert or git am in progress"
 DIFF_MODES = ("direct", "base-ours", "base-theirs")
 _MODE_STAGES = {"direct": ("2", "3"), "base-ours": ("1", "2"), "base-theirs": ("1", "3")}
 _SIDE_STAGES = {"ours": "2", "theirs": "3"}
@@ -41,6 +41,8 @@ def conflict_context(cwd: str | None = None) -> ConflictContext | None:
     if operation == "rebase":
         return _rebase_context(gd, cwd)
     branch = current_branch(cwd) or "detached HEAD"
+    if operation == "am":
+        return _am_context(gd, branch)
     if operation == "merge":
         sha = _first_line(gd / "MERGE_HEAD")
         name = _branch_name(sha, cwd)
@@ -79,6 +81,17 @@ def _rebase_context(gd: Path, cwd: str | None) -> ConflictContext:
         f"Your commit: {_describe(picked, cwd)}",
         step,
     )
+
+
+def _am_context(gd: Path, branch: str) -> ConflictContext:
+    state = gd / "rebase-apply"
+    subject = _first_line(state / "final-commit")
+    patch = f'"{subject}"' if subject else "patch"
+    step = _step(state, ("next", "last"))
+    headline = f"Applying patch {patch} onto {branch}" if subject else f"Applying a patch onto {branch}"
+    if step:
+        headline += f" (step {step[0]}/{step[1]})"
+    return ConflictContext("am", headline, f"Current: {branch}", f"Patch: {patch}", step)
 
 
 def _read(path: Path) -> str | None:
@@ -201,12 +214,14 @@ _CONTINUE = {
     "merge": mr.merge_continue,
     "cherry-pick": mr.cherry_pick_continue,
     "revert": mr.revert_continue,
+    "am": mr.am_continue,
 }
 _ABORT = {
     "rebase": mr.rebase_abort,
     "merge": mr.merge_abort,
     "cherry-pick": mr.cherry_pick_abort,
     "revert": mr.revert_abort,
+    "am": mr.am_abort,
 }
 _MARKER = re.compile(rb"^(?:<{7}|>{7})(?: |\r?$)", re.MULTILINE)
 

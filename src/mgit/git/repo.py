@@ -44,6 +44,8 @@ def in_progress_operation(cwd: str | None = None) -> str | None:
         return "revert"
     if (gd / "MERGE_HEAD").exists():
         return "merge"
+    if (gd / "rebase-apply" / "applying").exists():
+        return "am"
     if (gd / "rebase-merge").exists() or (gd / "rebase-apply").exists():
         return "rebase"
     return None

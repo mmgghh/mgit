@@ -52,3 +52,13 @@ def test_nuke_prompt_warns_abandoned_for_in_progress_merge(tmp_git_repo, monkeyp
     _mark_merge_in_progress(tmp_git_repo)
     result = runner.invoke(app, ["nuke"], input="n\n")
     assert "abandoned" in result.stdout.lower()
+
+
+def test_reset_hard_prompt_warns_git_am_will_not_be_aborted(tmp_git_repo, monkeypatch):
+    monkeypatch.chdir(tmp_git_repo)
+    state = Path(tmp_git_repo, ".git", "rebase-apply")
+    state.mkdir()
+    (state / "applying").write_text("")
+    result = runner.invoke(app, ["reset-hard", "HEAD"], input="n\n")
+    assert "git am is in progress" in result.stdout.lower()
+    assert "will not abort it" in result.stdout.lower()

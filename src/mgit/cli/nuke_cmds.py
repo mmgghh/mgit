@@ -13,6 +13,8 @@ def _in_progress_warning() -> str:
         return ""
     if op == "rebase":
         return " A rebase is in progress; this will NOT abort it (run 'mgit rebase abort' first if you want to abandon it)."
+    if op == "am":
+        return " A git am is in progress; this will NOT abort it (run 'git am --abort' first if you want to abandon it)."
     return f" A {op} is currently in progress and will be abandoned."
 
 

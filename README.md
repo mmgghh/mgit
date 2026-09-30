@@ -46,7 +46,7 @@ side-by-side layout; otherwise you get plain `git diff` output. Set
 delta's default styling, since this bypasses your gitconfig `[delta]`
 settings).
 
-During a merge, rebase, cherry-pick or revert, `mgit conflicts show <path>`
+During a merge, rebase, cherry-pick, revert or `git am`, `mgit conflicts show <path>`
 says which side is which — during a rebase git's "ours" is the upstream you
 are rebasing onto and "theirs" is your own commit — then diffs the two sides
 (`--mode base-ours` / `--mode base-theirs` show what each side changed).

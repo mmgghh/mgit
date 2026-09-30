@@ -28,7 +28,7 @@ HELP_TEXT = """\
   e              edit the file in $VISUAL / $EDITOR
   a              mark the file resolved
   m              cycle the diff: 1 ↔ 2, base → 1, base → 2
-  C / A          continue / abort the merge, rebase, cherry-pick or revert
+  C / A          continue / abort the merge, rebase, cherry-pick, revert or git am
 
 [bold]F1[/bold]  toggles this help"""
 

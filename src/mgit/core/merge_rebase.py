@@ -58,6 +58,14 @@ def revert_skip(cwd: str | None = None) -> str:
     return run(["revert", "--skip"], cwd=cwd)
 
 
+def am_continue(cwd: str | None = None, env: dict[str, str] | None = None) -> str:
+    return run(["am", "--continue"], cwd=cwd, env=env)
+
+
+def am_abort(cwd: str | None = None) -> str:
+    return run(["am", "--abort"], cwd=cwd)
+
+
 def list_conflicts(cwd: str | None = None) -> list[tuple[str, str]]:
     out = run(["status", "--porcelain=v2"], cwd=cwd)
     result = []

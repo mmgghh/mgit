@@ -259,3 +259,55 @@ def test_is_conflicted(merge_conflict_repo):
     assert conflicts.is_conflicted("file.txt", merge_conflict_repo)
     assert not conflicts.is_conflicted("README.md", merge_conflict_repo)
     assert not conflicts.is_conflicted("no-such-file.txt", merge_conflict_repo)
+
+
+def _am_conflict(repo, git_commit, patch_dir):
+    git_commit(repo, "file.txt", "base\n", "add file")
+    subprocess.run(["git", "checkout", "-q", "-b", "feature"], cwd=repo, check=True)
+    git_commit(repo, "file.txt", "feature\n", "feature change")
+    subprocess.run(["git", "format-patch", "-q", "-1", "-o", str(patch_dir)], cwd=repo, check=True)
+    subprocess.run(["git", "checkout", "-q", "main"], cwd=repo, check=True)
+    git_commit(repo, "file.txt", "main\n", "main change")
+    subprocess.run(["git", "am", "-3", *map(str, patch_dir.iterdir())], cwd=repo, capture_output=True)
+
+
+def test_am_is_not_mistaken_for_a_rebase(tmp_git_repo, git_commit, tmp_path):
+    _am_conflict(tmp_git_repo, git_commit, tmp_path / "patches")
+    assert in_progress_operation(tmp_git_repo) == "am"
+    ctx = conflicts.conflict_context(tmp_git_repo)
+    assert ctx.operation == "am"
+    assert ctx.headline == 'Applying patch "feature change" onto main (step 1/1)'
+    assert ctx.ours_label == "Current: main"
+    assert ctx.theirs_label == 'Patch: "feature change"'
+    assert ctx.step == (1, 1)
+
+
+def test_am_continue_finishes_with_the_patch_message(tmp_git_repo, git_commit, tmp_path):
+    _am_conflict(tmp_git_repo, git_commit, tmp_path / "patches")
+    conflicts.take_side("file.txt", "theirs", tmp_git_repo)
+    conflicts.continue_operation(tmp_git_repo)
+    assert in_progress_operation(tmp_git_repo) is None
+    subject = subprocess.run(["git", "log", "-1", "--format=%s"], cwd=tmp_git_repo,
+                             capture_output=True, text=True).stdout.strip()
+    assert subject == "feature change"
+
+
+def test_am_abort(tmp_git_repo, git_commit, tmp_path):
+    _am_conflict(tmp_git_repo, git_commit, tmp_path / "patches")
+    conflicts.abort_operation(tmp_git_repo)
+    assert in_progress_operation(tmp_git_repo) is None
+    assert Path(tmp_git_repo, "file.txt").read_text() == "main\n"
+
+
+def test_apply_backend_rebase_is_still_a_rebase(tmp_git_repo, git_commit):
+    repo = tmp_git_repo
+    git_commit(repo, "file.txt", "base\n", "add file")
+    subprocess.run(["git", "checkout", "-q", "-b", "feature/login"], cwd=repo, check=True)
+    git_commit(repo, "file.txt", "feature\n", "add login")
+    subprocess.run(["git", "checkout", "-q", "main"], cwd=repo, check=True)
+    git_commit(repo, "file.txt", "main\n", "main change")
+    subprocess.run(["git", "checkout", "-q", "feature/login"], cwd=repo, check=True)
+    subprocess.run(["git", "rebase", "--apply", "main"], cwd=repo, capture_output=True)
+    assert in_progress_operation(repo) == "rebase"
+    ctx = conflicts.conflict_context(repo)
+    assert ctx.headline == "Rebasing feature/login onto main (step 1/1)"
