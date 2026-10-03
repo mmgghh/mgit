@@ -199,7 +199,7 @@ class CommandFormScreen(ModalScreen[None]):
 
     @work(thread=True, exclusive=True)
     def _run_process(self, argv: list[str]) -> None:
-        env = {**os.environ, "FORCE_COLOR": "1"}
+        env = {**os.environ, "FORCE_COLOR": "1", "MGIT_SHOW_GIT_COMMAND": "1"}
         # Resolve the `mgit` executable next to the *currently running*
         # interpreter (sys.executable), not a bare "mgit" on PATH. A bare
         # name can resolve to a completely different install (e.g. a

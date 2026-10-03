@@ -1,7 +1,14 @@
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
+import sys
+
+
+def _show_command(args: list[str]) -> None:
+    if os.environ.get("MGIT_SHOW_GIT_COMMAND") == "1":
+        print(f"$ git {shlex.join(args)}", file=sys.stderr, flush=True)
 
 
 class GitCommandError(RuntimeError):
@@ -13,6 +20,7 @@ class GitCommandError(RuntimeError):
 
 
 def run(args: list[str], cwd: str | None = None, check: bool = True, env: dict[str, str] | None = None) -> str:
+    _show_command(args)
     result = subprocess.run(
         ["git", *args],
         cwd=cwd,
@@ -28,6 +36,7 @@ def run(args: list[str], cwd: str | None = None, check: bool = True, env: dict[s
 
 
 def run_bytes(args: list[str], cwd: str | None = None) -> bytes:
+    _show_command(args)
     result = subprocess.run(["git", *args], cwd=cwd, capture_output=True)
     if result.returncode != 0:
         raise GitCommandError(args, result.returncode, result.stderr.decode("utf-8", errors="replace"))

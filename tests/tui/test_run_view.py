@@ -154,6 +154,7 @@ async def test_running_a_command_streams_output_and_takes_effect(tmp_git_repo):
 
         output = form.query_one("#run-output", RichLog)
         assert output.lines  # something was written
+        assert any("git checkout -b from-run-tab" in str(line) for line in output.lines)
         assert "from-run-tab" in list_branches(tmp_git_repo)
 
 
